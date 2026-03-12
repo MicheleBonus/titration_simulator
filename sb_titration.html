@@ -175,9 +175,9 @@
                             <p>Für komplexe Systeme mit mehreren Analytkomponenten gilt:</p>
                             $$ V = V_0 \cdot \frac{X + Y + \Delta + \alpha}{Z - \alpha} $$
                             <p>wobei \(\alpha = [H^+] - [OH^-]\) der Protonenüberschuss ist, und \(X, Y\) die Beiträge der einzelnen Säure-Base-Systeme im Titrand darstellen.</p>
-                            <h4>Formationsfunktion \(\bar{n}\) (Gl. [10])</h4>
-                            <p>\(\bar{n}\) ist die mittlere Protonenzahl am basischen Anion und wird über die Molenbrüche \(f_i\) berechnet:</p>
-                            $$ \bar{n} = \sum_{i=0}^{q} i \cdot f_i $$
+                            <h4>Bjerrum-Funktion \(\bar{n}\) (Gl. [10])</h4>
+                            <p>\(\bar{n}\) ist die mittlere Protonenzahl am basischen Anion. In dieser App gilt die Indexkonvention \(\alpha_i =\) Anteil von \(H_{q-i}L\), d. h. \(\alpha_0 = H_qL\) (voll protoniert) und \(\alpha_q = L\) (voll deprotoniert):</p>
+                            $$ \bar{n} = \sum_{i=0}^{q} (q-i) \cdot \alpha_i $$
                             <h4>Dynamische Pufferkapazität \(\beta_V\) (Gl. [93])</h4>
                             <p>Im Gegensatz zur statischen β berücksichtigt \(\beta_V = dc/dpH\) die Verdünnung während der Titration.</p>
                         </div>
@@ -224,7 +224,7 @@
                 </article>
 
                 <article id="tab3" class="tab-content">
-                    <h3>Speziesverteilung und Formationsfunktion n&#772;</h3>
+                    <h3>Speziesverteilung und Bjerrum-Funktion (mittlere Protonenzahl n&#772;)</h3>
                     <fieldset>
                         <legend>Y-Achse anzeigen als:</legend>
                         <input type="radio" name="species_plot_type" value="fraction" id="radio-fraction" checked>
@@ -232,8 +232,9 @@
                         <input type="radio" name="species_plot_type" value="concentration" id="radio-concentration">
                         <label for="radio-concentration">Molare Konzentration</label>
                         <input type="radio" name="species_plot_type" value="nbar" id="radio-nbar">
-                        <label for="radio-nbar" title="Bjerrums Formationsfunktion n̄ = mittlere Protonenzahl am Anion (Gl. [10])">Formationsfunktion n&#772;</label>
+                        <label for="radio-nbar" title="Bjerrum-Funktion: n̄ = mittlere Protonenzahl am Anion; α_i ist der Anteil von H_{q-i}L (Gl. [10])">Bjerrum-Funktion (n&#772;)</label>
                     </fieldset>
+                    <small>Konvention: \(\alpha[0] = H_qL\) (voll protoniert), \(\alpha[q] = L\) (voll deprotoniert).</small>
                     <div id="plot-species" style="width:100%; height:500px;"></div>
                 </article>
 
@@ -409,13 +410,13 @@
             return charge;
         }
 
-        // Formation function n̄ (Bjerrum function, Eq. [10]): mean number of protons on L^{-n}
+        // Bjerrum-Funktion n̄ (Gl. [10]): mittlere Protonenzahl mit α_i als Anteil von H_{q-i}L
         function formationFunction(alphas) {
             let nbar = 0;
             const q = alphas.length - 1; // q protonation steps
             for (let i = 0; i <= q; i++) {
-                // alphas[0] = fully protonated (H_qL), alphas[q] = fully deprotonated (L)
-                // so protons on species i = q - i
+                // alpha[0] = vollständig protoniert (H_qL), alpha[q] = vollständig deprotoniert (L)
+                // Protonenzahl der Spezies i ist daher q - i
                 nbar += (q - i) * alphas[i];
             }
             return nbar;
@@ -1003,7 +1004,7 @@
             const plot_type = document.querySelector('input[name="species_plot_type"]:checked').value;
 
             if (plot_type === 'nbar') {
-                // Formation function n̄ plot (Bjerrum function, Eq. [10])
+                // Bjerrum-Funktion n̄ (Gl. [10])
                 const data = [];
                 params.components.forEach((comp, k) => {
                     if (titration.nbar_values[k]) {
@@ -1017,7 +1018,7 @@
                 });
 
                 const layout = {
-                    title: 'Formationsfunktion n̄ (Bjerrum, Gl. [10])',
+                    title: 'Bjerrum-Funktion (mittlere Protonenzahl n̄)',
                     xaxis: { title: 'Volumen zugegebener Maßlösung (mL)', range: [0, plot_end_volume_ml] },
                     yaxis: { title: 'n̄ (mittlere Protonenzahl)' },
                     template: 'plotly_dark',

@@ -118,6 +118,23 @@
         .inflection-marker {
             font-size: 0.9em;
         }
+        #simulation-notice {
+            margin-top: 0.75rem;
+            padding: 0.6rem 0.8rem;
+            border: 1px solid var(--pico-del-color);
+            border-radius: var(--pico-border-radius);
+            color: var(--pico-del-color);
+            background: color-mix(in srgb, var(--pico-del-color) 14%, transparent);
+            display: none;
+            font-size: 0.92rem;
+        }
+        .comp-validation-error {
+            color: var(--pico-del-color);
+            font-size: 0.78rem;
+            margin-top: -0.35rem;
+            margin-bottom: 0.35rem;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -213,6 +230,7 @@
                             </select>
                         </div>
                     </div>
+                    <div id="simulation-notice" role="alert"></div>
                     <div id="indicator-metrics" class="metrics-grid" style="margin-top:1rem; display:none;"></div>
                     <div id="plot-main" style="width:100%; height:500px;"></div>
 					<div id="equivalence-table" class="metrics-grid" style="margin-top:1rem;"></div>
@@ -564,6 +582,7 @@
             tabButtons: document.querySelectorAll('.tab-buttons button'),
             tabContents: document.querySelectorAll('.tab-content'),
             runBackTitrationBtn: document.getElementById('run_back_titration'),
+            simulationNotice: document.getElementById('simulation-notice'),
         };
 
         let currentSimulationData = {};
@@ -665,6 +684,33 @@
                 input.addEventListener('input', runFullSimulation);
                 container.appendChild(label);
                 container.appendChild(input);
+                const error = document.createElement('small');
+                error.className = 'comp-validation-error';
+                container.appendChild(error);
+            }
+        }
+
+        function clearSimulationNotice() {
+            ui.simulationNotice.style.display = 'none';
+            ui.simulationNotice.textContent = '';
+        }
+
+        function showSimulationNotice(message) {
+            ui.simulationNotice.textContent = message;
+            ui.simulationNotice.style.display = 'block';
+        }
+
+        function setComponentFieldError(input, message) {
+            input.setCustomValidity(message || '');
+            const errEl = input.nextElementSibling;
+            if (errEl && errEl.classList.contains('comp-validation-error')) {
+                if (message) {
+                    errEl.textContent = message;
+                    errEl.style.display = 'block';
+                } else {
+                    errEl.textContent = '';
+                    errEl.style.display = 'none';
+                }
             }
         }
 
@@ -685,22 +731,35 @@
             const isAcid = ui.analyteMode.value === 'acid';
             const componentDivs = ui.mixtureContainer.querySelectorAll('.mixture-component');
             const components = [];
+            const validationErrors = [];
 
-            componentDivs.forEach(div => {
+            componentDivs.forEach((div, compIdx) => {
                 const symbol = div.querySelector('.comp-symbol').value || 'X';
                 const concentration = parseFloat(div.querySelector('.comp-conc').value) || 0.1;
                 const n = parseInt(div.querySelector('.comp-n').value) || 1;
                 const pkaInputs = div.querySelectorAll('.comp-pka-input');
                 const pkas = [];
-                pkaInputs.forEach(inp => {
+                pkaInputs.forEach((inp, pkaIdx) => {
                     const val = parseFloat(inp.value);
-                    if (Number.isFinite(val)) pkas.push(val);
+                    if (inp.value.trim() === '' || !Number.isFinite(val)) {
+                        const msg = `Komponente ${compIdx + 1}: pKₐ ${pkaIdx + 1} ist leer oder ungültig.`;
+                        setComponentFieldError(inp, msg);
+                        validationErrors.push(msg);
+                        return;
+                    }
+                    setComponentFieldError(inp, '');
+                    pkas.push(val);
                 });
                 pkas.sort((a, b) => a - b);
                 components.push({ symbol, concentration, n_protons: pkas.length, pkas, is_acid: isAcid });
             });
 
+            if (validationErrors.length > 0 || components.some(comp => comp.pkas.length === 0)) {
+                return { valid: false, validationErrors, components, analyte_is_acid: isAcid };
+            }
+
             return {
+                valid: true,
                 analyte_is_acid: isAcid,
                 pks: parseFloat(ui.pksSlider.value),
                 v_analyte: parseFloat(ui.vAnalyte.value) / 1000.0,
@@ -712,7 +771,14 @@
         }
 
         function runFullSimulation() {
+            clearSimulationNotice();
             const params = getParams();
+            if (!params.valid) {
+                if (params.validationErrors && params.validationErrors.length > 0) {
+                    showSimulationNotice('Simulation gestoppt: Mindestens eine Komponente hat keine gültige Dissoziationskonstante (pKₐ).');
+                }
+                return;
+            }
             if (params.components.length === 0) return;
 
             const titration = new TitrationCalculator(params);
@@ -767,7 +833,15 @@
             const plot_end_volume_ml = Math.max(total_eq_volume_l * 1000 * 1.5, 1.0);
 
             // For Φ calculation: Φ = C·V / (total moles titratable)
-            const phi_values = titration.volumes.map(v => (params.c_titrant * v) / total_moles_titratable);
+            const phiIsValid = Number.isFinite(total_moles_titratable) && total_moles_titratable > 0;
+            const phi_values = phiIsValid
+                ? titration.volumes.map(v => (params.c_titrant * v) / total_moles_titratable)
+                : volumes_ml;
+
+            if (!phiIsValid) {
+                if (ui.xAxisMode.value === 'phi') ui.xAxisMode.value = 'volume';
+                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar');
+            }
 
             // For backward compatibility with single-component code
             const n_protons = params.components[0].pkas.length;
@@ -781,7 +855,7 @@
                 titration, params, volumes_ml, n_protons, plot_end_volume_ml,
                 eq_vols_l, half_eq_vols_l, species_labels, species_concentrations,
                 all_species_labels, all_species_concentrations, phi_values,
-                total_moles_titratable, inflection_points
+                total_moles_titratable, inflection_points, phiIsValid
             };
 
             updateTargetEqSelect(eq_vols_l.length);
@@ -820,9 +894,14 @@
         function plotMainCurve() {
             const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, half_eq_vols_l,
                     species_labels, species_concentrations, phi_values, inflection_points,
-                    total_moles_titratable } = currentSimulationData;
+                    total_moles_titratable, phiIsValid } = currentSimulationData;
 
-            const usePhiAxis = ui.xAxisMode.value === 'phi';
+            const wantsPhiAxis = ui.xAxisMode.value === 'phi';
+            const usePhiAxis = wantsPhiAxis && phiIsValid;
+
+            if (wantsPhiAxis && !phiIsValid) {
+                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar');
+            }
 
             // x values: either volumes in mL or Φ
             const x_data = usePhiAxis ? phi_values : volumes_ml;
@@ -832,7 +911,9 @@
             const x_half = usePhiAxis
                 ? half_eq_vols_l.map(v => (params.c_titrant * v) / total_moles_titratable)
                 : half_eq_vols_l.map(v => v * 1000);
-            const x_end = usePhiAxis ? Math.max(...x_eq) * 1.5 : plot_end_volume_ml;
+            const x_end = usePhiAxis
+                ? (x_eq.length > 0 ? Math.max(...x_eq) * 1.5 : plot_end_volume_ml)
+                : plot_end_volume_ml;
             const x_title = usePhiAxis ? 'Titrationsgrad Φ = C·V / (C₀·V₀)' : 'Volumen zugegebener Maßlösung (mL)';
 
             const data = [];

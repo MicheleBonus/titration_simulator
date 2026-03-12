@@ -278,9 +278,25 @@
                     <div id="back-titration-results" style="margin-top:1rem;"></div>
                     <div id="plot-back-titration" style="width:100%; height:500px; margin-top:1rem;"></div>
                 </article>
-	                <article id="tab5" class="tab-content">
+                <article id="tab5" class="tab-content">
                     <h3>Pufferkapazität: statisch (β) und dynamisch (β<sub>V</sub>)</h3>
-                    <p>Die <strong>statische</strong> Pufferkapazität β = dΔ/dpH (Van Slyke) beschreibt die Widerstandsfähigkeit gegen pH-Änderung bei konstanter Gesamtkonzentration. Die <strong>dynamische</strong> Pufferkapazität β<sub>V</sub> = dc/dpH (Michałowski, Gl. [93]) berücksichtigt den Verdünnungseffekt während der Titration.</p>
+                    <p>Die <strong>statische</strong> Pufferkapazität β = dΔ/dpH (Van Slyke) beschreibt die Widerstandsfähigkeit gegen pH-Änderung bei konstanter Gesamtkonzentration. Die <strong>dynamische</strong> Pufferkapazität β<sub>V</sub> = dc/dpH (Michałowski, Gl. [93]) berücksichtigt den Verdünnungseffekt während der Titration. Daher ist β<sub>V</sub> explizit volumen- bzw. verdünnungsabhängig und darf nicht 1:1 mit der statischen β gleichgesetzt werden.</p>
+                    <div class="grid-3-col" style="margin-bottom:1rem; align-items:end;">
+                        <div>
+                            <label for="buffer_display_mode">Darstellung</label>
+                            <select id="buffer_display_mode">
+                                <option value="dual" selected>Zwei y-Achsen (β & βV)</option>
+                                <option value="normalized">Normiert (β/βmax & βV/βVmax)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="buffer_y_scale">y-Skalierung</label>
+                            <select id="buffer_y_scale">
+                                <option value="linear" selected>Linear</option>
+                                <option value="log">Logarithmisch</option>
+                            </select>
+                        </div>
+                    </div>
                     <div id="plot-buffer" style="width:100%; height:450px;"></div>
                 </article>
                 <article id="tab6" class="tab-content">
@@ -543,6 +559,8 @@
             targetEqIdxSelect: document.getElementById('target_eq_idx'),
             xAxisMode: document.getElementById('x_axis_mode'),
             speciesPlotType: document.getElementsByName('species_plot_type'),
+            bufferDisplayMode: document.getElementById('buffer_display_mode'),
+            bufferYScale: document.getElementById('buffer_y_scale'),
             tabButtons: document.querySelectorAll('.tab-buttons button'),
             tabContents: document.querySelectorAll('.tab-content'),
             runBackTitrationBtn: document.getElementById('run_back_titration'),
@@ -1066,35 +1084,74 @@
         }
 
         function plotBufferCapacity() {
-            const { titration, params, volumes_ml } = currentSimulationData;
-            if (titration.phs.length < 4) {
+            const { titration, params } = currentSimulationData;
+            if (!titration || titration.phs.length < 4) {
                 document.getElementById('plot-buffer').innerHTML = '<p>Zu wenige Daten für β-Berechnung.</p>';
                 return;
             }
 
+            const displayMode = ui.bufferDisplayMode?.value || 'dual';
+            const yScale = ui.bufferYScale?.value || 'linear';
+
             // Static buffer capacity β = |dΔ/dpH| ≈ |1/(dV/dpH)| (Eq. [79])
             const dv_dph = numGradient(titration.volumes, titration.phs);
-            const beta_static = dv_dph.map(v => Math.abs(1/v));
+            const beta_static = dv_dph.map(v => Math.abs(1 / v));
 
             // Dynamic buffer capacity βV = |dc/dpH| (Eq. [93-97])
             // c = C·V / (V₀+V) is the current concentration of titrant in the mixture
-            const c_values = titration.volumes.map(v => {
-                return (params.c_titrant * v) / (params.v_analyte + v);
-            });
+            const c_values = titration.volumes.map(v => (params.c_titrant * v) / (params.v_analyte + v));
             const dc_dph = numGradient(c_values, titration.phs);
             const beta_dynamic = dc_dph.map(v => Math.abs(v));
 
-            const trace1 = { x: titration.phs, y: beta_static, mode: 'lines', line: {color: 'lime', width: 2}, name: 'β (statisch)' };
-            const trace2 = { x: titration.phs, y: beta_dynamic, mode: 'lines', line: {color: 'cyan', width: 2, dash: 'dash'}, name: 'βV (dynamisch)' };
+            const maxStatic = Math.max(...beta_static, Number.EPSILON);
+            const maxDynamic = Math.max(...beta_dynamic, Number.EPSILON);
+            const isNormalized = displayMode === 'normalized';
+
+            const betaStaticY = isNormalized ? beta_static.map(v => v / maxStatic) : beta_static;
+            const betaDynamicY = isNormalized ? beta_dynamic.map(v => v / maxDynamic) : beta_dynamic;
+
+            const trace1 = {
+                x: titration.phs,
+                y: betaStaticY,
+                mode: 'lines',
+                line: { color: 'lime', width: 2 },
+                name: isNormalized ? 'β/βmax (statisch)' : 'β (statisch)',
+                yaxis: 'y'
+            };
+            const trace2 = {
+                x: titration.phs,
+                y: betaDynamicY,
+                mode: 'lines',
+                line: { color: 'cyan', width: 2, dash: 'dash' },
+                name: isNormalized ? 'βV/βVmax (dynamisch)' : 'βV (dynamisch)',
+                yaxis: isNormalized ? 'y' : 'y2'
+            };
+
+            const yAxisTitle = isNormalized
+                ? 'Normierte Pufferkapazität (–)'
+                : 'β statisch |dΔ/dpH| (L·mol⁻¹·pH⁻¹)';
 
             const layout = {
-                title: 'Pufferkapazität: β (statisch) und βV (dynamisch, Gl. [93])',
+                title: isNormalized
+                    ? 'Pufferkapazität (normiert): β/βmax und βV/βVmax'
+                    : 'Pufferkapazität: β (statisch) und βV (dynamisch, Gl. [93])',
                 xaxis: { title: 'pH', range: [0, params.pks] },
-                yaxis: { title: 'Pufferkapazität', type: 'linear' },
+                yaxis: { title: yAxisTitle, type: yScale },
                 template: 'plotly_dark',
-                legend: { yanchor: "top", y: 0.95, xanchor: "right", x: 0.95 }
+                legend: { yanchor: 'top', y: 0.95, xanchor: 'right', x: 0.95 }
             };
-            Plotly.newPlot('plot-buffer', [trace1, trace2], layout, {responsive: true});
+
+            if (!isNormalized) {
+                layout.yaxis2 = {
+                    title: 'βV dynamisch |dc/dpH| (mol·L⁻¹·pH⁻¹)',
+                    overlaying: 'y',
+                    side: 'right',
+                    type: yScale,
+                    showgrid: false
+                };
+            }
+
+            Plotly.newPlot('plot-buffer', [trace1, trace2], layout, { responsive: true });
         }
 
         // Inflection points dedicated tab
@@ -1312,6 +1369,8 @@
         ui.indicatorSelect.addEventListener('change', plotMainCurve);
         ui.targetEqIdxSelect.addEventListener('change', plotMainCurve);
         ui.speciesPlotType.forEach(radio => radio.addEventListener('change', plotSpecies));
+        ui.bufferDisplayMode?.addEventListener('change', plotBufferCapacity);
+        ui.bufferYScale?.addEventListener('change', plotBufferCapacity);
         ui.runBackTitrationBtn.addEventListener('click', runBackTitration);
 
         // Initialer Aufbau

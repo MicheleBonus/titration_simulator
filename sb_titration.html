@@ -29,7 +29,7 @@
         }
         .tab-buttons {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 0.5rem;
             margin-bottom: 1rem;
         }
@@ -87,6 +87,37 @@
         sup, sub {
             line-height: 0;
         }
+        .mixture-component {
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+        .mixture-component .remove-btn {
+            position: absolute;
+            top: 0.25rem;
+            right: 0.25rem;
+            background: crimson;
+            border: none;
+            color: white;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 0;
+            line-height: 1.5rem;
+            text-align: center;
+        }
+        #add-analyte-btn {
+            width: 100%;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .inflection-marker {
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -113,60 +144,59 @@
                     <hr>
                     
                     <h4>Parameter der Reaktanten</h4>
-                    
-                    <label for="analyte_base_name">Chemisches Symbol des Analyten</label>
-                    <input type="text" id="analyte_base_name" value="A" maxlength="5" title="Symbol zur Beschriftung der Spezies in Diagrammen (z. B. A für Essigsäure, B für Ammoniak).">
-                    
-                    <div class="grid" style="grid-template-columns:1fr 1fr; gap:0.5rem;">
-                        <div>
-                            <h5>Analyt (<span class="analyte-label">Säure</span>)</h5>
-                            <label for="v_analyte">Volumen (mL)</label>
-                            <input type="number" id="v_analyte" value="50.0" step="1.0" min="0.1">
-                            
-                            <label for="c_analyte">Konz. (mol/L)</label>
-                            <input type="number" id="c_analyte" value="0.100" step="0.01" min="1e-6">
-                            
-                            <label for="n_a">Wertigkeit</label>
-                            <input type="number" id="n_a" value="2" min="1" max="5" step="1" title="Anzahl übertragbarer Protonen.">
-                            
-                            <div id="pkas_analyte_container">
-                                <!-- pKa-Eingabefelder werden dynamisch von JS erzeugt -->
-                            </div>
+
+                    <div>
+                        <h5>Titrand (D) — Analytlösung (<span class="analyte-label">Säure</span>)</h5>
+                        <label for="v_analyte">Volumen (mL)</label>
+                        <input type="number" id="v_analyte" value="50.0" step="1.0" min="0.1">
+
+                        <div id="mixture-components">
+                            <!-- Gemisch-Komponenten werden dynamisch erzeugt -->
                         </div>
-                        <div>
-                            <h5>Maßlösung (<span class="titrant-label">Base</span>)</h5>
-                            <label for="c_titrant">Konz. (mol/L)</label>
-                            <input type="number" id="c_titrant" value="0.100" step="0.01" min="1e-6">
-                            
-                            <label for="pkas_titrant" title="Für starke Basen (NaOH) pKs von H₂O (~15.74) nutzen. Für starke Säuren (HCl) pKs von H₃O⁺ (~-1.74) nutzen.">pKs korresp. Säure</label>
-                            <input type="number" id="pkas_titrant" value="15.74" step="0.01">
-                        </div>
+                        <button id="add-analyte-btn" class="secondary outline" title="Weitere Säure-/Base-Komponente zum Gemisch hinzufügen (Asuero & Michałowski, Gl. [37])">+ Komponente hinzufügen</button>
+                    </div>
+                    <hr>
+                    <div>
+                        <h5>Titrant (T) — Maßlösung (<span class="titrant-label">Base</span>)</h5>
+                        <label for="c_titrant">Konz. (mol/L)</label>
+                        <input type="number" id="c_titrant" value="0.100" step="0.01" min="1e-6">
+
+                        <label for="pkas_titrant" title="Für starke Basen (NaOH) pKs von H₂O (~15.74) nutzen. Für starke Säuren (HCl) pKs von H₃O⁺ (~-1.74) nutzen.">pKs korresp. Säure</label>
+                        <input type="number" id="pkas_titrant" value="15.74" step="0.01">
+
+                        <label for="co2_concentration" title="CO₂-Kontamination in NaOH-Maßlösung (Asuero & Michałowski, Gl. [34])">CO₂-Konzentration (mol/L)</label>
+                        <input type="number" id="co2_concentration" value="0" step="0.0001" min="0" title="0 = keine Verunreinigung. Typisch: 0.001–0.005 mol/L für handelsübliche NaOH.">
                     </div>
                     <details>
                         <summary>Mehr erfahren: Die Wissenschaft dahinter</summary>
                         <div>
-                            <p>Dieser Simulator basiert auf dem fundamentalen Prinzip der <strong>Ladungsbilanz</strong>,
-                            das sicherstellt, dass die gesamte positive Ladung in der Lösung zu jeder Zeit der gesamten negativen Ladung entspricht.</p>
-                            <h4>Die Mastergleichung</h4>
-                            <p>Die Kernberechnung löst die folgende Gleichung für das Volumen der Maßlösung, \(V_t\), an jedem pH-Punkt:</p>
-                            $$ V_t = -V_a \frac{C'_a Z_a + [H_3O^+] - [OH^-]}{C'_t Z_t + [H_3O^+] - [OH^-]} $$
-                            <p>Hierbei sind \(C'\) die formalen Konzentrationen unter Berücksichtigung der Verdünnung, und \(Z\) ist die <strong>durchschnittliche Ladung</strong> der jeweiligen Spezies.</p>
+                            <p>Dieser Simulator basiert auf dem fundamentalen Prinzip der <strong>Ladungsbilanz</strong> und implementiert die umfassende Formulierung nach <em>Asuero & Michałowski (2011)</em>.</p>
+                            <h4>Mastergleichung für Gemische (Gl. [37])</h4>
+                            <p>Für komplexe Systeme mit mehreren Analytkomponenten gilt:</p>
+                            $$ V = V_0 \cdot \frac{X + Y + \Delta + \alpha}{Z - \alpha} $$
+                            <p>wobei \(\alpha = [H^+] - [OH^-]\) der Protonenüberschuss ist, und \(X, Y\) die Beiträge der einzelnen Säure-Base-Systeme im Titrand darstellen.</p>
+                            <h4>Formationsfunktion \(\bar{n}\) (Gl. [10])</h4>
+                            <p>\(\bar{n}\) ist die mittlere Protonenzahl am basischen Anion und wird über die Molenbrüche \(f_i\) berechnet:</p>
+                            $$ \bar{n} = \sum_{i=0}^{q} i \cdot f_i $$
+                            <h4>Dynamische Pufferkapazität \(\beta_V\) (Gl. [93])</h4>
+                            <p>Im Gegensatz zur statischen β berücksichtigt \(\beta_V = dc/dpH\) die Verdünnung während der Titration.</p>
                         </div>
                     </details>
                 </article>
             </aside>
             <section>
                 <nav class="tab-buttons">
-                    <button data-tab="tab1" class="active">📊 Titrationskurve & Indikator</button>
-                    <button data-tab="tab2">📈 Ableitungsdiagramme</button>
-                    <button data-tab="tab3">🔬 Speziesverteilung</button>
-                    <button data-tab="tab4">🔄 Rücktitration</button>
-					<button data-tab="tab5">📉 Pufferkapazität</button>
+                    <button data-tab="tab1" class="active">Titrationskurve & Indikator</button>
+                    <button data-tab="tab2">Ableitungsdiagramme</button>
+                    <button data-tab="tab3">Speziesverteilung & n&#772;</button>
+                    <button data-tab="tab4">Rücktitration</button>
+                    <button data-tab="tab5">Pufferkapazität</button>
+                    <button data-tab="tab6">Wendepunkte</button>
                 </nav>
 
                 <article id="tab1" class="tab-content active">
                     <h3>Titrationskurve und Simulation des chemischen Indikators</h3>
-                    <div class="grid" style="grid-template-columns: 3fr 1fr; gap: 1rem;">
+                    <div class="grid" style="grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
                         <div>
                             <label for="indicator-select">Chemischen Indikator auswählen</label>
                             <select id="indicator-select"></select>
@@ -174,6 +204,13 @@
                         <div>
                             <label for="target_eq_idx">Ziel-ÄP für Fehler</label>
                             <select id="target_eq_idx"></select>
+                        </div>
+                        <div>
+                            <label for="x_axis_mode">X-Achse</label>
+                            <select id="x_axis_mode" title="Φ = C·V/(C₀·V₀) — normierter Titrationsgrad (Asuero & Michałowski, Gl. [9])">
+                                <option value="volume" selected>Volumen (mL)</option>
+                                <option value="phi">Titrationsgrad Φ</option>
+                            </select>
                         </div>
                     </div>
                     <div id="indicator-metrics" class="metrics-grid" style="margin-top:1rem; display:none;"></div>
@@ -187,13 +224,15 @@
                 </article>
 
                 <article id="tab3" class="tab-content">
-                    <h3>Speziesverteilung des Analyten</h3>
+                    <h3>Speziesverteilung und Formationsfunktion n&#772;</h3>
                     <fieldset>
                         <legend>Y-Achse anzeigen als:</legend>
                         <input type="radio" name="species_plot_type" value="fraction" id="radio-fraction" checked>
                         <label for="radio-fraction">Anteile der Spezies (α)</label>
                         <input type="radio" name="species_plot_type" value="concentration" id="radio-concentration">
                         <label for="radio-concentration">Molare Konzentration</label>
+                        <input type="radio" name="species_plot_type" value="nbar" id="radio-nbar">
+                        <label for="radio-nbar" title="Bjerrums Formationsfunktion n̄ = mittlere Protonenzahl am Anion (Gl. [10])">Formationsfunktion n&#772;</label>
                     </fieldset>
                     <div id="plot-species" style="width:100%; height:500px;"></div>
                 </article>
@@ -238,11 +277,17 @@
                     <div id="back-titration-results" style="margin-top:1rem;"></div>
                     <div id="plot-back-titration" style="width:100%; height:500px; margin-top:1rem;"></div>
                 </article>
-				<article id="tab5" class="tab-content">
-					<h3>Pufferkapazität β als Funktion des pH-Werts</h3>
-					<p>Die Pufferkapazität beschreibt, wie stark der pH einer Lösung einer Säure-Base-Titration gegenüber der Zugabe von Maßlösung stabil bleibt.</p>
-					<div id="plot-buffer" style="width:100%; height:450px;"></div>
-				</article>
+	                <article id="tab5" class="tab-content">
+                    <h3>Pufferkapazität: statisch (β) und dynamisch (β<sub>V</sub>)</h3>
+                    <p>Die <strong>statische</strong> Pufferkapazität β = dΔ/dpH (Van Slyke) beschreibt die Widerstandsfähigkeit gegen pH-Änderung bei konstanter Gesamtkonzentration. Die <strong>dynamische</strong> Pufferkapazität β<sub>V</sub> = dc/dpH (Michałowski, Gl. [93]) berücksichtigt den Verdünnungseffekt während der Titration.</p>
+                    <div id="plot-buffer" style="width:100%; height:450px;"></div>
+                </article>
+                <article id="tab6" class="tab-content">
+                    <h3>Wendepunkte der Titrationskurve</h3>
+                    <p>Wendepunkte (d²pH/dV² = 0) markieren Äquivalenzpunkte und Puffermaxima auf der Titrationskurve (Asuero & Michałowski, Gl. [50–54]).</p>
+                    <div id="inflection-results" class="metrics-grid" style="margin-bottom:1rem;"></div>
+                    <div id="plot-inflection" style="width:100%; height:500px;"></div>
+                </article>
             </section>
         </div>
     </main>
@@ -284,24 +329,26 @@
             "Tropaeolin O": { range: [11.1, 12.7], colors: ["yellow", "orange"] },
         };
 
+        // CO₂/H₂CO₃ dissociation constants (pK₁=6.3, pK₂=10.1)
+        const CO2_PK1 = 6.3;
+        const CO2_PK2 = 10.1;
+
         // =============================================================================
         // HILFSFUNKTIONEN
         // =============================================================================
 
-        // Portierung der Python-Hilfsfunktionen nach JavaScript
         function parseColorToRgb(colorStr) {
             const ctx = document.createElement('canvas').getContext('2d');
             ctx.fillStyle = colorStr;
-            const color = ctx.fillStyle; // Gets #rrggbb hex
+            const color = ctx.fillStyle;
             return [parseInt(color.slice(1, 3), 16), parseInt(color.slice(3, 5), 16), parseInt(color.slice(5, 7), 16)];
         }
 
         function createColorGradient(color1, color2, n_steps = 50) {
-            // Normalize known "colorless" or transparent values to white
             const colorlessAliases = ["rgba(0,0,0,0)", "transparent", "colorless"];
             const c1_is_transparent = colorlessAliases.includes(color1.toLowerCase());
             const c2_is_transparent = colorlessAliases.includes(color2.toLowerCase());
-            if (c1_is_transparent) color1 = "#ffffff"; // faint white base
+            if (c1_is_transparent) color1 = "#ffffff";
             if (c2_is_transparent) color2 = "#ffffff";
 
             const c1_rgb = parseColorToRgb(color1);
@@ -313,9 +360,6 @@
                 const r = Math.round(c1_rgb[0] + (c2_rgb[0] - c1_rgb[0]) * ratio);
                 const g = Math.round(c1_rgb[1] + (c2_rgb[1] - c1_rgb[1]) * ratio);
                 const b = Math.round(c1_rgb[2] + (c2_rgb[2] - c1_rgb[2]) * ratio);
-
-                // Make white regions slightly transparent so gridlines stay visible
-                const alpha = (c1_is_transparent || c2_is_transparent) ? 0.6 : 0.3;
                 gradient.push(`rgb(${r},${g},${b})`);
             }
             return gradient;
@@ -325,9 +369,9 @@
             const step = (stop - start) / (num - 1);
             return Array.from({ length: num }, (_, i) => start + step * i);
         }
-        
-        // Numerische Gradientenberechnung (Ersatz für np.gradient)
-        function gradient(y, x) {
+
+        // Numerische Gradientenberechnung
+        function numGradient(y, x) {
             if (y.length < 2) return [];
             const grad = [(y[1] - y[0]) / (x[1] - x[0])];
             for (let i = 1; i < y.length - 1; i++) {
@@ -337,86 +381,142 @@
             return grad;
         }
 
+        // Alpha fractions for a single acid/base system with given pKa values
+        function getAlphaFractions(ph, pkas) {
+            const h_plus = Math.pow(10, -ph);
+            const num_pkas = pkas.length;
+            if (num_pkas === 0) return [1];
+
+            const kas = pkas.map(pka => Math.pow(10, -pka));
+
+            let terms = [Math.pow(h_plus, num_pkas)];
+            for (let i = 1; i <= num_pkas; i++) {
+                let ka_product = 1;
+                for (let j = 0; j < i; j++) ka_product *= kas[j];
+                terms.push(Math.pow(h_plus, num_pkas - i) * ka_product);
+            }
+            const denom = terms.reduce((a, b) => a + b, 0);
+            return terms.map(term => term / denom);
+        }
+
+        // Average charge Z for a species
+        function averageCharge(alphas, pkas, is_acid) {
+            const num_pkas = pkas.length;
+            let charge = 0;
+            for (let i = 0; i < alphas.length; i++) {
+                charge += is_acid ? (-i * alphas[i]) : ((num_pkas - i) * alphas[i]);
+            }
+            return charge;
+        }
+
+        // Formation function n̄ (Bjerrum function, Eq. [10]): mean number of protons on L^{-n}
+        function formationFunction(alphas) {
+            let nbar = 0;
+            const q = alphas.length - 1; // q protonation steps
+            for (let i = 0; i <= q; i++) {
+                // alphas[0] = fully protonated (H_qL), alphas[q] = fully deprotonated (L)
+                // so protons on species i = q - i
+                nbar += (q - i) * alphas[i];
+            }
+            return nbar;
+        }
+
+        // CO₂ formation function m̄ for H₂CO₃ (Eq. [35])
+        function co2FormationFunction(ph) {
+            const h = Math.pow(10, -ph);
+            const K1 = Math.pow(10, -CO2_PK1);
+            const K2 = Math.pow(10, -CO2_PK2);
+            const h2 = h * h;
+            const denom = h2 + K1 * h + K1 * K2;
+            return (2 * h2 + K1 * h) / denom;
+        }
+
         // =============================================================================
-        // TITRATIONSBERECHNUNGS-ENGINE
+        // TITRATIONSBERECHNUNGS-ENGINE (supports mixtures per Eq. [37])
         // =============================================================================
         class TitrationCalculator {
             constructor(params) {
                 this.params = params;
                 this.volumes = [];
                 this.phs = [];
-                this.species_fractions = [];
+                this.species_fractions_per_component = []; // array of arrays per component
+                this.nbar_values = []; // formation function per component
                 this.calculateCurve();
-            }
-
-            _getAlphaFractions(ph, pkas) {
-                const h_plus = Math.pow(10, -ph);
-                const num_pkas = pkas.length;
-                if (num_pkas === 0) return [[1]];
-
-                const kas = pkas.map(pka => Math.pow(10, -pka));
-                
-                let denominator_terms = [Math.pow(h_plus, num_pkas)];
-                for (let i = 1; i <= num_pkas; i++) {
-                    let ka_product = 1;
-                    for (let j = 0; j < i; j++) ka_product *= kas[j];
-                    denominator_terms.push(Math.pow(h_plus, num_pkas - i) * ka_product);
-                }
-                const denominator = denominator_terms.reduce((a, b) => a + b, 0);
-                
-                return denominator_terms.map(term => term / denominator);
-            }
-
-            _averageCharge(alphas, pkas, is_acid) {
-                const num_pkas = pkas.length;
-                let charge = 0;
-                for (let i = 0; i < alphas.length; i++) {
-                    charge += is_acid ? (-i * alphas[i]) : ((num_pkas - i) * alphas[i]);
-                }
-                return charge;
             }
 
             calculateCurve() {
                 const p = this.params;
                 const ph_points = linspace(-1, p.pks + 1, 3000);
-                
+
                 let v_ph_pairs = [];
-                let all_alphas = Array.from({length: p.pkas_analyte.length + 1}, () => []);
 
                 ph_points.forEach(ph => {
-                    const alphas_analyte = this._getAlphaFractions(ph, p.pkas_analyte);
-                    const alphas_titrant = this._getAlphaFractions(ph, p.pkas_titrant);
-
-                    const Z_analyte = this._averageCharge(alphas_analyte, p.pkas_analyte, p.analyte_is_acid);
-                    const Z_titrant = this._averageCharge(alphas_titrant, p.pkas_titrant, !p.analyte_is_acid);
-
                     const h_plus = Math.pow(10, -ph);
-                    const s_minus = Math.pow(10, -p.pks) / h_plus;
-                    
-                    const numerator = p.c_analyte * Z_analyte + h_plus - s_minus;
-                    const denominator = -(p.c_titrant * Z_titrant + h_plus - s_minus);
+                    const oh_minus = Math.pow(10, ph - p.pks);
+                    const alpha = h_plus - oh_minus; // proton excess (Eq. [19])
+
+                    // Titrant contribution
+                    const alphas_titrant = getAlphaFractions(ph, p.pkas_titrant);
+                    const Z_titrant = averageCharge(alphas_titrant, p.pkas_titrant, !p.analyte_is_acid);
+                    let titrant_denom = p.c_titrant * Z_titrant + h_plus - oh_minus;
+
+                    // CO₂ contamination in titrant (Eq. [34])
+                    if (p.co2_concentration > 0) {
+                        const mbar = co2FormationFunction(ph);
+                        titrant_denom -= (2 - mbar) * p.co2_concentration;
+                    }
+
+                    const Z = -titrant_denom; // denominator: Z - α → -(titrant term)
+
+                    // Analyte mixture contributions: sum over all components (Eq. [37])
+                    let analyte_num = 0;
+                    const component_alphas = [];
+                    const component_nbars = [];
+
+                    for (const comp of p.components) {
+                        const alphas_k = getAlphaFractions(ph, comp.pkas);
+                        const Z_k = averageCharge(alphas_k, comp.pkas, comp.is_acid);
+                        analyte_num += comp.concentration * Z_k;
+                        component_alphas.push(alphas_k);
+                        component_nbars.push(formationFunction(alphas_k));
+                    }
+
+                    const numerator = analyte_num + h_plus - oh_minus;
+                    const denominator = -titrant_denom;
 
                     if (denominator !== 0) {
                         const v = p.v_analyte * numerator / denominator;
                         if (v >= 0 && isFinite(v)) {
-                            v_ph_pairs.push({ v: v, ph: ph, alphas: alphas_analyte });
+                            v_ph_pairs.push({ v, ph, component_alphas, component_nbars });
                         }
                     }
                 });
 
                 v_ph_pairs.sort((a, b) => a.v - b.v);
-                
-                this.volumes = v_ph_pairs.map(pair => pair.v);
-                this.phs = v_ph_pairs.map(pair => pair.ph);
-                
+
+                this.volumes = v_ph_pairs.map(p => p.v);
+                this.phs = v_ph_pairs.map(p => p.ph);
+
                 if (v_ph_pairs.length > 0) {
-                    const num_species = v_ph_pairs[0].alphas.length;
-                    this.species_fractions = Array.from({length: num_species}, () => []);
-                    v_ph_pairs.forEach(pair => {
-                        for (let i = 0; i < num_species; i++) {
-                            this.species_fractions[i].push(pair.alphas[i]);
-                        }
-                    });
+                    // Store species fractions per component
+                    const numComponents = p.components.length;
+                    this.species_fractions_per_component = [];
+                    this.nbar_values = Array.from({length: numComponents}, () => []);
+
+                    for (let k = 0; k < numComponents; k++) {
+                        const num_species = v_ph_pairs[0].component_alphas[k].length;
+                        const fracs = Array.from({length: num_species}, () => []);
+                        v_ph_pairs.forEach(pair => {
+                            for (let i = 0; i < num_species; i++) {
+                                fracs[i].push(pair.component_alphas[k][i]);
+                            }
+                            this.nbar_values[k].push(pair.component_nbars[k]);
+                        });
+                        this.species_fractions_per_component.push(fracs);
+                    }
+
+                    // For backward compatibility: first component species fractions
+                    this.species_fractions = this.species_fractions_per_component[0] || [];
                 }
             }
         }
@@ -430,26 +530,25 @@
             analyteMode: document.getElementById('analyte_mode'),
             pksSlider: document.getElementById('pks'),
             pksValue: document.getElementById('pks_value'),
-            analyteBaseName: document.getElementById('analyte_base_name'),
             vAnalyte: document.getElementById('v_analyte'),
-            cAnalyte: document.getElementById('c_analyte'),
-            nAnalyte: document.getElementById('n_a'),
-            pkaContainer: document.getElementById('pkas_analyte_container'),
+            mixtureContainer: document.getElementById('mixture-components'),
+            addAnalyteBtn: document.getElementById('add-analyte-btn'),
             cTitrant: document.getElementById('c_titrant'),
             pkasTitrant: document.getElementById('pkas_titrant'),
+            co2Concentration: document.getElementById('co2_concentration'),
             analyteLabels: document.querySelectorAll('.analyte-label'),
             titrantLabels: document.querySelectorAll('.titrant-label'),
             indicatorSelect: document.getElementById('indicator-select'),
             targetEqIdxSelect: document.getElementById('target_eq_idx'),
+            xAxisMode: document.getElementById('x_axis_mode'),
             speciesPlotType: document.getElementsByName('species_plot_type'),
-            // Tabs
             tabButtons: document.querySelectorAll('.tab-buttons button'),
             tabContents: document.querySelectorAll('.tab-content'),
-            // Back Titration
             runBackTitrationBtn: document.getElementById('run_back_titration'),
         };
 
         let currentSimulationData = {};
+        let mixtureComponentCount = 0;
 
         function formatSpeciesLabel(baseName, totalProtons, numProtonsOnSpecies, isAcid) {
             let charge;
@@ -468,151 +567,259 @@
             let protonStr = "";
             if (numProtonsOnSpecies === 1) protonStr = "H";
             else if (numProtonsOnSpecies > 1) protonStr = `H<sub>${numProtonsOnSpecies}</sub>`;
-            
+
             return `${protonStr}${baseName}${chargeStr}`;
         }
 
-		function updatePkaInputs() {
-			const count = parseInt(ui.nAnalyte.value, 10);
-			ui.pkaContainer.innerHTML = '';
+        // --- Mixture component management ---
+        const DEFAULT_PKAS = {
+            acid: { 1: [4.76], 2: [2.15, 7.20], 3: [2.15, 7.20, 12.35], 4: [1.8, 4.0, 8.0, 12.0], 5: [1.5, 3.5, 6.5, 9.5, 12.5] },
+            base: { 1: [9.24], 2: [6.35, 10.33], 3: [2.15, 7.20, 12.35], 4: [1.8, 4.0, 8.0, 12.0], 5: [1.5, 3.5, 6.5, 9.5, 12.5] }
+        };
 
-			// Dynamic, mode-aware hint (inserted at the top of the container)
-			const hint = document.createElement('p');
-			hint.id = 'pka_order_hint';
-			hint.className = 'muted';
-			ui.pkaContainer.appendChild(hint);
+        function addMixtureComponent(opts = {}) {
+            mixtureComponentCount++;
+            const id = mixtureComponentCount;
+            const isAcid = ui.analyteMode.value === 'acid';
+            const defaults = opts.pkas || (DEFAULT_PKAS[isAcid ? 'acid' : 'base'][opts.n || 2] || [4.76]);
+            const n = opts.n || defaults.length;
+            const conc = opts.concentration || 0.100;
+            const symbol = opts.symbol || (isAcid ? 'A' : 'B');
 
-			const isAcid = ui.analyteMode.value === "acid";
+            const div = document.createElement('div');
+            div.className = 'mixture-component';
+            div.dataset.componentId = id;
 
-			// Default pKa suggestions (kept simple and now ASCENDING)
-			// Acids: classic increasing acidity weakening: 2.15, 7.20, 12.35 etc.
-			const default_pkas_acid = {
-				1: [4.76],
-				2: [2.15, 7.20],
-				3: [2.15, 7.20, 12.35],
-				4: [1.8, 4.0, 8.0, 12.0],
-				5: [1.5, 3.5, 6.5, 9.5, 12.5]
-			};
+            const canRemove = ui.mixtureContainer.children.length > 0;
 
-			// Bases: pKa of the conjugate acid species (BH⁺, BH₂²⁺, …), ASCENDING by deprotonation
-			// (numbers here are merely reasonable placeholders → sorted ascending)
-			const default_pkas_base = {
-				1: [9.24],                 // NH4+ example
-				2: [6.35, 10.33],          // (ascending; typical diamine-like)
-				3: [2.15, 7.20, 12.35],    // generic ascending triple
-				4: [1.8, 4.0, 8.0, 12.0],
-				5: [1.5, 3.5, 6.5, 9.5, 12.5]
-			};
+            div.innerHTML = `
+                ${canRemove ? `<button class="remove-btn" title="Komponente entfernen" data-remove="${id}">×</button>` : ''}
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.25rem;">
+                    <div>
+                        <label>Symbol</label>
+                        <input type="text" class="comp-symbol" value="${symbol}" maxlength="5" data-id="${id}">
+                    </div>
+                    <div>
+                        <label>Konz. (mol/L)</label>
+                        <input type="number" class="comp-conc" value="${conc}" step="0.01" min="1e-6" data-id="${id}">
+                    </div>
+                </div>
+                <label>Wertigkeit</label>
+                <input type="number" class="comp-n" value="${n}" min="1" max="5" step="1" data-id="${id}">
+                <div class="comp-pkas" data-id="${id}"></div>
+            `;
 
-			const default_list = isAcid ? default_pkas_acid : default_pkas_base;
-			let defaults = (default_list[count] || Array(count).fill(7.0)).slice().sort((a,b)=>a-b);
+            ui.mixtureContainer.appendChild(div);
 
-			// Update the hint text
-			const acidHint = 'Geben Sie die <em>pK<sub>a</sub></em>-Werte der Säure in <b>aufsteigender</b> Reihenfolge ein (z.&nbsp;B. 2.15, 7.20, 12.35).';
-			const baseHint = 'Geben Sie die <em>pK<sub>a</sub></em>-Werte der <b>konjugierten Säuren</b> BH⁺/BH₂²⁺ … des Analyten in <b>aufsteigender</b> Reihenfolge der <em>Deprotonation</em> ein (z.&nbsp;B. 6.35, 10.33).';
-			hint.innerHTML = isAcid ? acidHint : baseHint;
+            // Build pKa inputs
+            updateComponentPkas(div, n, defaults);
 
-			// Build inputs
-			for (let i = 0; i < count; i++) {
-				const label = document.createElement('label');
-				label.innerHTML = `pK<sub>a</sub> ${i + 1}`;
-				const input = document.createElement('input');
-				input.type = 'number';
-				input.id = `pka_a_${i}`;
-				input.step = 0.01;
-				input.value = defaults[i];
-				ui.pkaContainer.appendChild(label);
-				ui.pkaContainer.appendChild(input);
-				input.addEventListener('input', runFullSimulation);
-			}
+            // Event listeners
+            div.querySelector('.comp-n').addEventListener('change', (e) => {
+                const newN = parseInt(e.target.value);
+                const mode = ui.analyteMode.value === 'acid' ? 'acid' : 'base';
+                const newDefaults = DEFAULT_PKAS[mode][newN] || Array(newN).fill(7.0);
+                updateComponentPkas(div, newN, newDefaults);
+                runFullSimulation();
+            });
+            div.querySelectorAll('.comp-symbol, .comp-conc').forEach(el => el.addEventListener('input', runFullSimulation));
+            if (canRemove) {
+                div.querySelector('.remove-btn').addEventListener('click', () => {
+                    div.remove();
+                    runFullSimulation();
+                });
+            }
+        }
 
-			updateTargetEqSelect(count);
-		}
-        
-        function updateTargetEqSelect(n_protons) {
+        function updateComponentPkas(div, n, defaults) {
+            const container = div.querySelector('.comp-pkas');
+            container.innerHTML = '';
+            for (let i = 0; i < n; i++) {
+                const label = document.createElement('label');
+                label.innerHTML = `pK<sub>a</sub> ${i + 1}`;
+                label.style.fontSize = '0.85em';
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.className = 'comp-pka-input';
+                input.step = 0.01;
+                input.value = defaults[i] !== undefined ? defaults[i] : 7.0;
+                input.addEventListener('input', runFullSimulation);
+                container.appendChild(label);
+                container.appendChild(input);
+            }
+        }
+
+        function updateTargetEqSelect(totalEqPoints) {
              ui.targetEqIdxSelect.innerHTML = '';
-             if (n_protons > 0) {
-                 for (let i = 1; i <= n_protons; i++) {
+             if (totalEqPoints > 0) {
+                 for (let i = 1; i <= totalEqPoints; i++) {
                      const option = document.createElement('option');
                      option.value = i;
                      option.textContent = i;
                      ui.targetEqIdxSelect.appendChild(option);
                  }
-                 ui.targetEqIdxSelect.parentElement.style.display = (n_protons > 1) ? 'block' : 'none';
+                 ui.targetEqIdxSelect.parentElement.style.display = (totalEqPoints > 1) ? 'block' : 'none';
              }
         }
-        
-		function getParams() {
-			const n_protons = parseInt(ui.nAnalyte.value, 10);
-			const pkas_analyte = [];
-			for (let i = 0; i < n_protons; i++) {
-				const val = parseFloat(document.getElementById(`pka_a_${i}`).value);
-				if (!Number.isFinite(val)) continue;
-				pkas_analyte.push(val);
-			}
-			// ALWAYS use ascending pKa internally
-			pkas_analyte.sort((a, b) => a - b);
 
-			return {
-				analyte_is_acid: ui.analyteMode.value === 'acid',
-				pks: parseFloat(ui.pksSlider.value),
-				v_analyte: parseFloat(ui.vAnalyte.value) / 1000.0,
-				c_analyte: parseFloat(ui.cAnalyte.value),
-				pkas_analyte: pkas_analyte,
-				c_titrant: parseFloat(ui.cTitrant.value),
-				pkas_titrant: [parseFloat(ui.pkasTitrant.value)]
-			};
-		}
+        function getParams() {
+            const isAcid = ui.analyteMode.value === 'acid';
+            const componentDivs = ui.mixtureContainer.querySelectorAll('.mixture-component');
+            const components = [];
+
+            componentDivs.forEach(div => {
+                const symbol = div.querySelector('.comp-symbol').value || 'X';
+                const concentration = parseFloat(div.querySelector('.comp-conc').value) || 0.1;
+                const n = parseInt(div.querySelector('.comp-n').value) || 1;
+                const pkaInputs = div.querySelectorAll('.comp-pka-input');
+                const pkas = [];
+                pkaInputs.forEach(inp => {
+                    const val = parseFloat(inp.value);
+                    if (Number.isFinite(val)) pkas.push(val);
+                });
+                pkas.sort((a, b) => a - b);
+                components.push({ symbol, concentration, n_protons: pkas.length, pkas, is_acid: isAcid });
+            });
+
+            return {
+                analyte_is_acid: isAcid,
+                pks: parseFloat(ui.pksSlider.value),
+                v_analyte: parseFloat(ui.vAnalyte.value) / 1000.0,
+                components: components,
+                c_titrant: parseFloat(ui.cTitrant.value),
+                pkas_titrant: [parseFloat(ui.pkasTitrant.value)],
+                co2_concentration: parseFloat(ui.co2Concentration.value) || 0,
+            };
+        }
 
         function runFullSimulation() {
             const params = getParams();
+            if (params.components.length === 0) return;
+
             const titration = new TitrationCalculator(params);
-            
+
             const volumes_ml = titration.volumes.map(v => v * 1000);
-            const n_protons = params.pkas_analyte.length;
-            const total_eq_volume_l = (params.c_analyte * params.v_analyte * n_protons) / params.c_titrant;
-            const plot_end_volume_ml = Math.max(total_eq_volume_l * 1000 * 1.5, 1.0);
-            
-            const eq_vols_l = Array.from({length: n_protons}, (_, i) => (i + 1) * (total_eq_volume_l / n_protons));
-            const step = total_eq_volume_l / n_protons;
-            const half_eq_vols_l = Array.from({length: n_protons}, (_, i) => (i + 0.5) * step);
 
-            const species_labels = Array.from({length: n_protons + 1}, (_, i) => 
-                formatSpeciesLabel(ui.analyteBaseName.value, n_protons, n_protons - i, params.analyte_is_acid));
-                
-            let species_concentrations = [];
-            if (titration.volumes.length > 0) {
-                 species_concentrations = titration.species_fractions.map(fractions => {
-                    return fractions.map((frac, i) => {
-                        const total_volume = params.v_analyte + titration.volumes[i];
-                        const formal_concentration = (params.c_analyte * params.v_analyte) / total_volume;
-                        return frac * formal_concentration;
+            // Compute total equivalence points across all components
+            let total_moles_titratable = 0;
+            const eq_vols_l = [];
+            const half_eq_vols_l = [];
+            const all_species_labels = [];
+            const all_species_concentrations = [];
+
+            let cumulative_vol = 0;
+            params.components.forEach((comp, k) => {
+                const n_k = comp.pkas.length;
+                const moles_k = comp.concentration * params.v_analyte;
+                const step_vol = moles_k / params.c_titrant;
+
+                for (let i = 1; i <= n_k; i++) {
+                    cumulative_vol += step_vol;
+                    eq_vols_l.push(cumulative_vol);
+                }
+
+                // Half-equivalence points
+                let cumHalf = cumulative_vol - n_k * step_vol;
+                for (let i = 0; i < n_k; i++) {
+                    half_eq_vols_l.push(cumHalf + (i + 0.5) * step_vol);
+                }
+
+                // Species labels for this component
+                const labels = Array.from({length: n_k + 1}, (_, i) =>
+                    formatSpeciesLabel(comp.symbol, n_k, n_k - i, comp.is_acid));
+                all_species_labels.push(labels);
+
+                // Species concentrations
+                if (titration.volumes.length > 0 && titration.species_fractions_per_component[k]) {
+                    const concArrays = titration.species_fractions_per_component[k].map(fractions => {
+                        return fractions.map((frac, idx) => {
+                            const total_volume = params.v_analyte + titration.volumes[idx];
+                            const formal_concentration = (comp.concentration * params.v_analyte) / total_volume;
+                            return frac * formal_concentration;
+                        });
                     });
-                });
-            }
+                    all_species_concentrations.push(concArrays);
+                }
 
-            currentSimulationData = { 
+                total_moles_titratable += moles_k * n_k;
+            });
+
+            const total_eq_volume_l = total_moles_titratable / params.c_titrant;
+            const plot_end_volume_ml = Math.max(total_eq_volume_l * 1000 * 1.5, 1.0);
+
+            // For Φ calculation: Φ = C·V / (total moles titratable)
+            const phi_values = titration.volumes.map(v => (params.c_titrant * v) / total_moles_titratable);
+
+            // For backward compatibility with single-component code
+            const n_protons = params.components[0].pkas.length;
+            const species_labels = all_species_labels[0] || [];
+            const species_concentrations = all_species_concentrations[0] || [];
+
+            // Compute inflection points from second derivative
+            const inflection_points = findInflectionPoints(volumes_ml, titration.phs);
+
+            currentSimulationData = {
                 titration, params, volumes_ml, n_protons, plot_end_volume_ml,
-                eq_vols_l, half_eq_vols_l, species_labels, species_concentrations 
+                eq_vols_l, half_eq_vols_l, species_labels, species_concentrations,
+                all_species_labels, all_species_concentrations, phi_values,
+                total_moles_titratable, inflection_points
             };
-            
+
+            updateTargetEqSelect(eq_vols_l.length);
             updateAllPlots();
+        }
+
+        // Find inflection points where d²pH/dV² changes sign (Eq. [50-54])
+        function findInflectionPoints(volumes_ml, phs) {
+            if (volumes_ml.length < 5) return [];
+
+            const dph_dv = numGradient(phs, volumes_ml);
+            const d2ph_dv2 = numGradient(dph_dv, volumes_ml);
+
+            const points = [];
+            for (let i = 2; i < d2ph_dv2.length - 2; i++) {
+                if (d2ph_dv2[i] * d2ph_dv2[i+1] < 0) {
+                    // Linear interpolation for zero crossing
+                    const frac = Math.abs(d2ph_dv2[i]) / (Math.abs(d2ph_dv2[i]) + Math.abs(d2ph_dv2[i+1]));
+                    const v_inf = volumes_ml[i] + frac * (volumes_ml[i+1] - volumes_ml[i]);
+                    const ph_inf = phs[i] + frac * (phs[i+1] - phs[i]);
+                    const slope = dph_dv[i] + frac * (dph_dv[i+1] - dph_dv[i]);
+                    points.push({ v: v_inf, ph: ph_inf, slope: slope });
+                }
+            }
+            return points;
         }
         
         function updateAllPlots() {
             plotMainCurve();
             plotDerivatives();
             plotSpecies();
-			plotBufferCapacity();
+            plotBufferCapacity();
+            plotInflectionPoints();
         }
 
         function plotMainCurve() {
-            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, half_eq_vols_l, species_labels, species_concentrations } = currentSimulationData;
-            
+            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, half_eq_vols_l,
+                    species_labels, species_concentrations, phi_values, inflection_points,
+                    total_moles_titratable } = currentSimulationData;
+
+            const usePhiAxis = ui.xAxisMode.value === 'phi';
+
+            // x values: either volumes in mL or Φ
+            const x_data = usePhiAxis ? phi_values : volumes_ml;
+            const x_eq = usePhiAxis
+                ? eq_vols_l.map(v => (params.c_titrant * v) / total_moles_titratable)
+                : eq_vols_l.map(v => v * 1000);
+            const x_half = usePhiAxis
+                ? half_eq_vols_l.map(v => (params.c_titrant * v) / total_moles_titratable)
+                : half_eq_vols_l.map(v => v * 1000);
+            const x_end = usePhiAxis ? Math.max(...x_eq) * 1.5 : plot_end_volume_ml;
+            const x_title = usePhiAxis ? 'Titrationsgrad Φ = C·V / (C₀·V₀)' : 'Volumen zugegebener Maßlösung (mL)';
+
             const data = [];
             const layout = {
-                title: 'Titrationskurve',
-                xaxis: { title: `Volumen zugegebener Maßlösung (mL)`, range: [0, plot_end_volume_ml] },
+                title: usePhiAxis ? 'Titrationskurve (normiert)' : 'Titrationskurve',
+                xaxis: { title: x_title, range: [0, x_end] },
                 yaxis: { title: 'pH', range: [0, params.pks] },
                 template: 'plotly_dark',
                 shapes: [],
@@ -620,7 +827,7 @@
                 legend: { yanchor: "top", y: 0.95, xanchor: "right", x: 0.95 }
             };
 
-            // Indikatorhintergrund
+            // Indicator background
             const sel_indicator = ui.indicatorSelect.value;
             const indicatorMetricsDiv = document.getElementById('indicator-metrics');
             if (sel_indicator !== "Indikator auswählen") {
@@ -634,11 +841,9 @@
                         fillcolor: grad[i], opacity: 0.3, layer: 'below', line: { width: 0 }
                     });
                 }
-                
-                // Indikatorfehlerberechnung
+
                 if (titration.phs.length > 1) {
                     const indicator_midpoint_ph = (info.range[0] + info.range[1]) / 2;
-                    // Interpolation
                     let endpoint_vol = 0;
                     for (let i=0; i<titration.phs.length-1; i++) {
                         if ((titration.phs[i] <= indicator_midpoint_ph && titration.phs[i+1] >= indicator_midpoint_ph) || (titration.phs[i] >= indicator_midpoint_ph && titration.phs[i+1] <= indicator_midpoint_ph)) {
@@ -646,10 +851,10 @@
                             break;
                         }
                     }
-                    const target_eq_idx = parseInt(ui.targetEqIdxSelect.value) - 1;
+                    const target_eq_idx = parseInt(ui.targetEqIdxSelect.value || '1') - 1;
                     const target_vol = eq_vols_l[target_eq_idx] * 1000;
                     const error = endpoint_vol - target_vol;
-                    const rel_error = (error / target_vol) * 100;
+                    const rel_error = target_vol > 0 ? (error / target_vol) * 100 : 0;
 
                     indicatorMetricsDiv.style.display = 'grid';
                     indicatorMetricsDiv.innerHTML = `
@@ -662,97 +867,96 @@
                  indicatorMetricsDiv.style.display = 'none';
             }
 
-            // Äquivalenz- und Halbäquivalenzpunkte
-            eq_vols_l.forEach((vol, i) => {
-                layout.shapes.push({ type: 'line', x0: vol * 1000, y0: 0, x1: vol * 1000, y1: params.pks, line: { color: 'crimson', width: 1.5, dash: 'dash' } });
-                layout.annotations.push({ x: vol * 1000, y: params.pks, text: `ÄP ${i+1}`, showarrow: false, xanchor: 'left', yanchor: 'top' });
+            // Equivalence and half-equivalence points
+            x_eq.forEach((xv, i) => {
+                layout.shapes.push({ type: 'line', x0: xv, y0: 0, x1: xv, y1: params.pks, line: { color: 'crimson', width: 1.5, dash: 'dash' } });
+                layout.annotations.push({ x: xv, y: params.pks, text: `ÄP ${i+1}`, showarrow: false, xanchor: 'left', yanchor: 'top' });
             });
-            half_eq_vols_l.forEach((vol, i) => {
-                layout.shapes.push({ type: 'line', x0: vol * 1000, y0: 0, x1: vol * 1000, y1: params.pks, line: { color: 'gray', width: 1, dash: 'dot' } });
-                layout.annotations.push({ x: vol * 1000, y: 0, text: `½ ÄP ${i+1}`, showarrow: false, xanchor: 'left', yanchor: 'bottom' });
+            x_half.forEach((xv, i) => {
+                layout.shapes.push({ type: 'line', x0: xv, y0: 0, x1: xv, y1: params.pks, line: { color: 'gray', width: 1, dash: 'dot' } });
+                layout.annotations.push({ x: xv, y: 0, text: `½ ÄP ${i+1}`, showarrow: false, xanchor: 'left', yanchor: 'bottom' });
             });
-            
-            // Titrationskurve
-            if (volumes_ml.length > 0) {
+
+            // Inflection point markers
+            if (inflection_points && inflection_points.length > 0) {
+                const inf_x = inflection_points.map(p => usePhiAxis ? (params.c_titrant * p.v / 1000) / total_moles_titratable : p.v);
+                const inf_y = inflection_points.map(p => p.ph);
+                data.push({
+                    x: inf_x, y: inf_y, mode: 'markers', name: 'Wendepunkte',
+                    marker: { color: 'orange', size: 8, symbol: 'diamond' },
+                    hovertemplate: usePhiAxis
+                        ? '<b>Wendepunkt</b><br>Φ: %{x:.3f}<br>pH: %{y:.2f}<extra></extra>'
+                        : '<b>Wendepunkt</b><br>V: %{x:.2f} mL<br>pH: %{y:.2f}<extra></extra>'
+                });
+            }
+
+            // Titration curve
+            if (x_data.length > 0) {
                 const h3o = titration.phs.map(ph => Math.pow(10, -ph));
                 const oh = titration.phs.map(ph => Math.pow(10, ph - params.pks));
-                
+
                 const customdata = h3o.map((h, i) => {
                    const concentrations = species_concentrations.map(sc => sc[i]);
                    return [h, oh[i], ...concentrations];
                 });
 
-                let hovertemplate = "<b>Volumen: %{x:.2f} mL</b><br><b>pH: %{y:.2f}</b><br><br>[H₃O⁺]: %{customdata[0]:.2e} M<br>[OH⁻]: %{customdata[1]:.2e} M<br><extra></extra>";
+                let hovertemplate = usePhiAxis
+                    ? "<b>Φ: %{x:.3f}</b><br>"
+                    : "<b>Volumen: %{x:.2f} mL</b><br>";
+                hovertemplate += "<b>pH: %{y:.2f}</b><br><br>[H₃O⁺]: %{customdata[0]:.2e} M<br>[OH⁻]: %{customdata[1]:.2e} M<br><extra></extra>";
                 species_labels.forEach((label, i) => {
-					hovertemplate += `[${label}]: %{customdata[${i+2}]:.2e} M<br>`;
+                    hovertemplate += `[${label}]: %{customdata[${i+2}]:.2e} M<br>`;
                 });
-                
+
                 data.push({
-                    x: volumes_ml, y: titration.phs, mode: 'lines', name: 'Titrationskurve',
+                    x: x_data, y: titration.phs, mode: 'lines', name: 'Titrationskurve',
                     line: { color: 'royalblue', width: 3 },
                     customdata: customdata, hovertemplate: hovertemplate
                 });
             }
-            
+
             computeEquivalenceMassTable(params, eq_vols_l);
 
-			// --- Auto-Erklärungs-Annotationen (mehrstufig, säure-/basenspezifisch) ---
-			// --- Kompaktere, gestaffelte Annotationen ---
-			const isAcid = params.analyte_is_acid;
+            const isAcid = params.analyte_is_acid;
+            const yLevels = [0.85, 0.70, 0.55, 0.40, 0.25];
 
-			// vertikale Staffelung, damit sich Texte nicht überlappen
-			const yLevels = [0.85, 0.70, 0.55, 0.40, 0.25];
+            x_eq.forEach((xv, i) => {
+                const stage = i + 1;
+                const isLast = stage === x_eq.length;
+                const text = isAcid
+                    ? (isLast ? `ÄP ${stage}: <b>vollst. Neutralisation</b>` : `ÄP ${stage}: Deprot. ${stage}`)
+                    : (isLast ? `ÄP ${stage}: <b>vollst. Protonierung</b>` : `ÄP ${stage}: Prot. ${stage}`);
+                layout.annotations.push({
+                    x: xv, y: params.pks * (yLevels[i % yLevels.length]),
+                    text, showarrow: false,
+                    font: { size: 12, color: 'lightgray' },
+                    xanchor: 'left', yanchor: 'top'
+                });
+            });
 
-			eq_vols_l.forEach((vol, i) => {
-				const stage = i + 1;
-				const isLast = stage === eq_vols_l.length;
-				const text = isAcid
-					? (isLast
-						? `ÄP ${stage}: <b>vollst. Neutralisation</b>`
-						: `ÄP ${stage}: Deprot. ${stage}`)
-					: (isLast
-						? `ÄP ${stage}: <b>vollst. Protonierung</b>`
-						: `ÄP ${stage}: Prot. ${stage}`);
-				layout.annotations.push({
-					x: vol * 1000,
-					y: params.pks * (yLevels[i % yLevels.length]),
-					text,
-					showarrow: false,
-					font: { size: 12, color: 'lightgray' },
-					xanchor: 'left',
-					yanchor: 'top'
-				});
-			});
+            if (x_half.length > 0) {
+                layout.annotations.push({
+                    x: x_half[0], y: params.pks*0.20,
+                    text: '½ ÄP 1 ≈ pKₐ₁ (Puffer)',
+                    showarrow: false,
+                    font: { size: 12, color: 'lightgray' },
+                    xanchor: 'left', yanchor: 'bottom'
+                });
+            }
 
-			// nur den ersten Halb-ÄP kurz markieren
-			if (half_eq_vols_l.length > 0) {
-				layout.annotations.push({
-					x: half_eq_vols_l[0]*1000,
-					y: params.pks*0.20,
-					text: isAcid
-						? '½ ÄP 1 ≈ pKₐ₁ (Puffer)'
-						: '½ ÄP 1 ≈ pKₐ₁ (Puffer)',
-					showarrow: false,
-					font: { size: 12, color: 'lightgray' },
-					xanchor: 'left',
-					yanchor: 'bottom'
-				});
-			}
-
-			Plotly.newPlot('plot-main', data, layout, {responsive: true});
+            Plotly.newPlot('plot-main', data, layout, {responsive: true});
         }
 
-		function computeEquivalenceMassTable(params, eq_vols_l) {
-			const M = 105.99; // Beispiel: Na2CO3, replace dynamically later
-			const z = params.pkas_analyte.length; // number of equivalents
-			const E = M / (z * 1000); // g per mL 1 M
-			const mg_per_ml = E * params.c_titrant * 1000;
-			const tableDiv = document.getElementById('equivalence-table');
-			tableDiv.innerHTML = `
-				<div><h3>Äquivalente (z)</h3><p>${z}</p></div>
-				<div><h3>1 mL Maßlösung (${params.c_titrant.toFixed(3)} M)</h3><p>${mg_per_ml.toFixed(2)} mg pro mL</p></div>
-				<div><h3>Gesamt-ÄP-Volumen</h3><p>${(eq_vols_l[eq_vols_l.length-1]*1000).toFixed(2)} mL</p></div>`;
-		}
+        function computeEquivalenceMassTable(params, eq_vols_l) {
+            const totalEq = eq_vols_l.length;
+            const totalVol = eq_vols_l.length > 0 ? eq_vols_l[eq_vols_l.length-1]*1000 : 0;
+            const nComp = params.components.length;
+            const tableDiv = document.getElementById('equivalence-table');
+            tableDiv.innerHTML = `
+                <div><h3>Äquivalenzpunkte</h3><p>${totalEq}</p></div>
+                <div><h3>Komponenten</h3><p>${nComp}</p></div>
+                <div><h3>Gesamt-ÄP-Volumen</h3><p>${totalVol.toFixed(2)} mL</p></div>`;
+        }
         
         function plotDerivatives() {
             const { volumes_ml, titration, eq_vols_l, plot_end_volume_ml, params } = currentSimulationData;
@@ -762,8 +966,8 @@
             }
 
             const v_points = volumes_ml.slice(1, -1);
-            const dph_dv = gradient(titration.phs, volumes_ml).slice(1, -1);
-            const d2ph_dv2 = gradient(dph_dv, v_points);
+            const dph_dv = numGradient(titration.phs, volumes_ml).slice(1, -1);
+            const d2ph_dv2 = numGradient(dph_dv, v_points);
 
             const trace1 = { x: v_points, y: dph_dv, mode: 'lines', name: '1. Ableitung', xaxis: 'x1', yaxis: 'y1' };
             const trace2 = { x: v_points, y: d2ph_dv2, mode: 'lines', name: '2. Ableitung', xaxis: 'x2', yaxis: 'y2' };
@@ -789,52 +993,172 @@
         }
         
         function plotSpecies() {
-            const { volumes_ml, titration, species_labels, species_concentrations, plot_end_volume_ml, params } = currentSimulationData;
+            const { volumes_ml, titration, species_labels, species_concentrations, plot_end_volume_ml, params,
+                    all_species_labels, all_species_concentrations } = currentSimulationData;
             if (volumes_ml.length === 0) {
                 document.getElementById('plot-species').innerHTML = '<p>Keine Daten zur Darstellung der Speziesverteilung verfügbar.</p>';
                 return;
             }
-            
+
             const plot_type = document.querySelector('input[name="species_plot_type"]:checked').value;
-            const y_data_source = plot_type === "fraction" ? titration.species_fractions : species_concentrations;
-            const y_axis_title = plot_type === "fraction" ? "Anteil (α)" : "Konzentration (mol/L)";
-            
-            const data = [];
-            species_labels.forEach((label, i) => {
-                data.push({
-                    x: volumes_ml, y: y_data_source[i], mode: 'lines', name: label,
-                    fill: 'tozeroy', hovertemplate: `<b>${label}</b><br>Volumen: %{x:.2f} mL<br>${y_axis_title}: %{y:.3e}<extra></extra>`
+
+            if (plot_type === 'nbar') {
+                // Formation function n̄ plot (Bjerrum function, Eq. [10])
+                const data = [];
+                params.components.forEach((comp, k) => {
+                    if (titration.nbar_values[k]) {
+                        data.push({
+                            x: volumes_ml, y: titration.nbar_values[k],
+                            mode: 'lines', name: `n̄(${comp.symbol})`,
+                            line: { width: 2 },
+                            hovertemplate: `<b>n̄(${comp.symbol})</b><br>Volumen: %{x:.2f} mL<br>n̄: %{y:.3f}<extra></extra>`
+                        });
+                    }
                 });
+
+                const layout = {
+                    title: 'Formationsfunktion n̄ (Bjerrum, Gl. [10])',
+                    xaxis: { title: 'Volumen zugegebener Maßlösung (mL)', range: [0, plot_end_volume_ml] },
+                    yaxis: { title: 'n̄ (mittlere Protonenzahl)' },
+                    template: 'plotly_dark',
+                    hovermode: 'x unified'
+                };
+                Plotly.newPlot('plot-species', data, layout, {responsive: true});
+                return;
+            }
+
+            // Standard species distribution (fraction or concentration)
+            const data = [];
+            const colors = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
+                            '#aec7e8','#ffbb78','#98df8a','#ff9896','#c5b0d5','#c49c94'];
+            let colorIdx = 0;
+
+            params.components.forEach((comp, k) => {
+                const fracs = titration.species_fractions_per_component[k];
+                const concs = all_species_concentrations[k];
+                const labels = all_species_labels[k];
+                const y_source = plot_type === 'fraction' ? fracs : concs;
+
+                if (labels && y_source) {
+                    labels.forEach((label, i) => {
+                        data.push({
+                            x: volumes_ml, y: y_source[i], mode: 'lines',
+                            name: label, line: { color: colors[colorIdx % colors.length] },
+                            fill: params.components.length === 1 ? 'tozeroy' : undefined,
+                            hovertemplate: `<b>${label}</b><br>Volumen: %{x:.2f} mL<br>%{y:.3e}<extra></extra>`
+                        });
+                        colorIdx++;
+                    });
+                }
             });
-            
+
+            const y_axis_title = plot_type === "fraction" ? "Anteil (α)" : "Konzentration (mol/L)";
             const layout = {
-                title: 'Speziesverteilung des Analyten',
-                xaxis: { title: `Volumen zugegebener Maßlösung (mL)`, range: [0, plot_end_volume_ml] },
+                title: params.components.length > 1 ? 'Speziesverteilung (Gemisch)' : 'Speziesverteilung des Analyten',
+                xaxis: { title: 'Volumen zugegebener Maßlösung (mL)', range: [0, plot_end_volume_ml] },
                 yaxis: { title: y_axis_title },
                 template: 'plotly_dark',
                 hovermode: 'x unified'
             };
-            
+
             Plotly.newPlot('plot-species', data, layout, {responsive: true});
         }
 
-		function plotBufferCapacity() {
-			const { titration, params } = currentSimulationData;
-			if (titration.phs.length < 4) {
-				document.getElementById('plot-buffer').innerHTML = '<p>Zu wenige Daten für β-Berechnung.</p>';
-				return;
-			}
-			const hplus = titration.phs.map(ph => Math.pow(10, -ph));
-			const beta = gradient(titration.volumes, titration.phs).map(v => Math.abs(1/v));
-			const trace = { x: titration.phs, y: beta, mode:'lines', line:{color:'lime'}, name:'β' };
-			const layout = {
-				title: 'Pufferkapazität β(pH)',
-				xaxis:{ title:'pH', range:[0, params.pks] },
-				yaxis:{ title:'β (mol H⁺ pro ΔpH)', type:'linear' },
-				template:'plotly_dark'
-			};
-			Plotly.newPlot('plot-buffer', [trace], layout, {responsive:true});
-		}
+        function plotBufferCapacity() {
+            const { titration, params, volumes_ml } = currentSimulationData;
+            if (titration.phs.length < 4) {
+                document.getElementById('plot-buffer').innerHTML = '<p>Zu wenige Daten für β-Berechnung.</p>';
+                return;
+            }
+
+            // Static buffer capacity β = |dΔ/dpH| ≈ |1/(dV/dpH)| (Eq. [79])
+            const dv_dph = numGradient(titration.volumes, titration.phs);
+            const beta_static = dv_dph.map(v => Math.abs(1/v));
+
+            // Dynamic buffer capacity βV = |dc/dpH| (Eq. [93-97])
+            // c = C·V / (V₀+V) is the current concentration of titrant in the mixture
+            const c_values = titration.volumes.map(v => {
+                return (params.c_titrant * v) / (params.v_analyte + v);
+            });
+            const dc_dph = numGradient(c_values, titration.phs);
+            const beta_dynamic = dc_dph.map(v => Math.abs(v));
+
+            const trace1 = { x: titration.phs, y: beta_static, mode: 'lines', line: {color: 'lime', width: 2}, name: 'β (statisch)' };
+            const trace2 = { x: titration.phs, y: beta_dynamic, mode: 'lines', line: {color: 'cyan', width: 2, dash: 'dash'}, name: 'βV (dynamisch)' };
+
+            const layout = {
+                title: 'Pufferkapazität: β (statisch) und βV (dynamisch, Gl. [93])',
+                xaxis: { title: 'pH', range: [0, params.pks] },
+                yaxis: { title: 'Pufferkapazität', type: 'linear' },
+                template: 'plotly_dark',
+                legend: { yanchor: "top", y: 0.95, xanchor: "right", x: 0.95 }
+            };
+            Plotly.newPlot('plot-buffer', [trace1, trace2], layout, {responsive: true});
+        }
+
+        // Inflection points dedicated tab
+        function plotInflectionPoints() {
+            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, inflection_points } = currentSimulationData;
+            if (volumes_ml.length < 5) {
+                document.getElementById('plot-inflection').innerHTML = '<p>Zu wenige Daten.</p>';
+                return;
+            }
+
+            // Results table
+            const resultsDiv = document.getElementById('inflection-results');
+            if (inflection_points && inflection_points.length > 0) {
+                let html = '';
+                inflection_points.forEach((pt, i) => {
+                    const isNearEq = eq_vols_l.some(v => Math.abs(pt.v - v * 1000) < (plot_end_volume_ml * 0.02));
+                    const label = isNearEq ? 'ÄP-Nähe' : 'Puffermax.';
+                    html += `<div><h3>WP ${i+1} (${label})</h3><p>V=${pt.v.toFixed(2)} mL, pH=${pt.ph.toFixed(2)}</p></div>`;
+                });
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = '<div><h3>Keine Wendepunkte gefunden</h3><p>—</p></div>';
+            }
+
+            // Plot: titration curve + inflection points + second derivative
+            const dph_dv = numGradient(titration.phs, volumes_ml);
+            const d2ph_dv2 = numGradient(dph_dv, volumes_ml);
+
+            const trace_curve = {
+                x: volumes_ml, y: titration.phs, mode: 'lines', name: 'pH(V)',
+                line: { color: 'royalblue', width: 2 }, yaxis: 'y1'
+            };
+            const trace_d2 = {
+                x: volumes_ml, y: d2ph_dv2, mode: 'lines', name: 'd²pH/dV²',
+                line: { color: 'orange', width: 1.5 }, yaxis: 'y2'
+            };
+
+            const data = [trace_curve, trace_d2];
+
+            if (inflection_points && inflection_points.length > 0) {
+                data.push({
+                    x: inflection_points.map(p => p.v),
+                    y: inflection_points.map(p => p.ph),
+                    mode: 'markers', name: 'Wendepunkte (d²pH/dV²=0)',
+                    marker: { color: 'orange', size: 10, symbol: 'diamond' },
+                    yaxis: 'y1'
+                });
+            }
+
+            const shapes = eq_vols_l.map(v => ({
+                type: 'line', x0: v*1000, y0: 0, x1: v*1000, y1: 1,
+                xref: 'x', yref: 'paper', line: { color: 'crimson', dash: 'dash', width: 1 }
+            }));
+
+            const layout = {
+                title: 'Wendepunktanalyse (Gl. [50–54])',
+                xaxis: { title: 'Volumen (mL)', range: [0, plot_end_volume_ml] },
+                yaxis: { title: 'pH', side: 'left' },
+                yaxis2: { title: 'd²pH/dV²', side: 'right', overlaying: 'y' },
+                template: 'plotly_dark',
+                shapes: shapes,
+                legend: { yanchor: "top", y: 0.95, xanchor: "left", x: 0.05 }
+            };
+            Plotly.newPlot('plot-inflection', data, layout, {responsive: true});
+        }
         
         function runBackTitration() {
             // Werte auslesen
@@ -874,17 +1198,18 @@
 
             // SIMULATION 1: Gesamtmenge R1 (Referenz)
             const params_total = {
-                v_analyte: v_before_titration_l, c_analyte: c_r1_total_initial,
-                pkas_analyte: [r1_is_base ? 15.74 : -1.74],
+                v_analyte: v_before_titration_l,
+                components: [{ symbol: 'R1', concentration: c_r1_total_initial, pkas: [r1_is_base ? 15.74 : -1.74], is_acid: !r1_is_base, n_protons: 1 }],
                 analyte_is_acid: !r1_is_base, c_titrant: c_r2,
-                pkas_titrant: [pka_r2], pks: 14.0,
+                pkas_titrant: [pka_r2], pks: 14.0, co2_concentration: 0,
             };
             const sim_total = new TitrationCalculator(params_total);
             const eq_vol_total_ml = (moles_r1_added / c_r2) * 1000.0;
 
             // SIMULATION 2: Übrige Menge R1 (Tatsächlich)
             const params_leftover = {
-                ...params_total, c_analyte: c_r1_leftover_initial
+                ...params_total,
+                components: [{ symbol: 'R1', concentration: c_r1_leftover_initial, pkas: [r1_is_base ? 15.74 : -1.74], is_acid: !r1_is_base, n_protons: 1 }],
             };
             const sim_leftover = new TitrationCalculator(params_leftover);
             const eq_vol_leftover_ml = (moles_r1_remaining / c_r2) * 1000.0;
@@ -934,7 +1259,7 @@
         }
 
         // --- Event-Listener und Initialisierung ---
-        
+
         // Tab-Umschaltung
         ui.tabButtons.forEach(button => {
             button.addEventListener('click', () => {
@@ -943,39 +1268,51 @@
                 ui.tabButtons.forEach(btn => btn.classList.remove('active'));
                 document.getElementById(targetTab).classList.add('active');
                 button.classList.add('active');
-                // Neuberechnung/Neuzeichnung kann hier ausgelöst werden
-                updateAllPlots(); 
+                updateAllPlots();
             });
         });
 
         // Automatische Aktualisierung bei Parameteränderung
-        [ui.vAnalyte, ui.cAnalyte, ui.cTitrant, ui.pkasTitrant].forEach(el => {
+        [ui.vAnalyte, ui.cTitrant, ui.pkasTitrant, ui.co2Concentration].forEach(el => {
             el.addEventListener('input', runFullSimulation);
-        });
-        ui.nAnalyte.addEventListener('change', () => {
-             updatePkaInputs();
-             runFullSimulation();
         });
         ui.analyteMode.addEventListener('change', (e) => {
             const isAcid = e.target.value === 'acid';
-            ui.analyteLabels.forEach(l => l.textContent = isAcid ? "Säure" : "Base");
-            ui.titrantLabels.forEach(l => l.textContent = isAcid ? "Base" : "Säure");
-            ui.analyteBaseName.value = isAcid ? "A" : "B";
+            ui.analyteLabels.forEach(l => l.textContent = isAcid ? "S\u00e4ure" : "Base");
+            ui.titrantLabels.forEach(l => l.textContent = isAcid ? "Base" : "S\u00e4ure");
             ui.pkasTitrant.value = isAcid ? 15.74 : -1.74;
-            updatePkaInputs();
+            // Rebuild mixture components for new mode
+            ui.mixtureContainer.innerHTML = '';
+            mixtureComponentCount = 0;
+            addMixtureComponent({ n: 2, pkas: isAcid ? [2.15, 7.20] : [6.35, 10.33], symbol: isAcid ? 'A' : 'B' });
             runFullSimulation();
         });
         ui.pksSlider.addEventListener('input', () => {
             ui.pksValue.textContent = parseFloat(ui.pksSlider.value).toFixed(2);
             runFullSimulation();
         });
-        
+        ui.xAxisMode.addEventListener('change', plotMainCurve);
+
+        // Add component button
+        ui.addAnalyteBtn.addEventListener('click', () => {
+            const isAcid = ui.analyteMode.value === 'acid';
+            const compNum = ui.mixtureContainer.children.length + 1;
+            const symbols = ['A','B','C','D','E','F','G'];
+            addMixtureComponent({
+                n: 1,
+                pkas: isAcid ? [4.76] : [9.24],
+                symbol: symbols[compNum - 1] || `X${compNum}`,
+                concentration: 0.050
+            });
+            runFullSimulation();
+        });
+
         // Listener für Plots
         ui.indicatorSelect.addEventListener('change', plotMainCurve);
         ui.targetEqIdxSelect.addEventListener('change', plotMainCurve);
         ui.speciesPlotType.forEach(radio => radio.addEventListener('change', plotSpecies));
         ui.runBackTitrationBtn.addEventListener('click', runBackTitration);
-        
+
         // Initialer Aufbau
         const indicatorOptions = Object.keys(INDICATOR_DATA)
             .filter(name => name !== "Indikator auswählen")
@@ -985,10 +1322,7 @@
                 return midA - midB;
             });
 
-        // „Indikator auswählen“ wieder an erste Stelle setzen
         indicatorOptions.unshift("Indikator auswählen");
-
-        // Dropdown füllen
         indicatorOptions.forEach(name => {
             const option = document.createElement('option');
             option.value = name;
@@ -996,7 +1330,8 @@
             ui.indicatorSelect.appendChild(option);
         });
 
-        updatePkaInputs();
+        // Create initial mixture component
+        addMixtureComponent({ n: 2, pkas: [2.15, 7.20], symbol: 'A', concentration: 0.100 });
         runFullSimulation();
         
         // MathJax für schöne Formeln laden und rendern

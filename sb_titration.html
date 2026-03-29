@@ -456,6 +456,40 @@
             return nbar;
         }
 
+        // Unicode subscript/superscript maps for Plotly trace names (no HTML in Plotly legends)
+        const SUB = ['₀','₁','₂','₃','₄','₅','₆','₇','₈','₉'];
+        const SUP_DIGIT = ['⁰','¹','²','³','⁴','⁵','⁶','⁷','⁸','⁹'];
+
+        function formatSpeciesLabelPlain(baseName, totalProtons, numProtonsOnSpecies, isAcid) {
+            const charge = isAcid ? (numProtonsOnSpecies - totalProtons) : numProtonsOnSpecies;
+            let chargeStr = '';
+            if (charge === 1) chargeStr = '⁺';
+            else if (charge === -1) chargeStr = '⁻';
+            else if (charge > 1) chargeStr = (SUP_DIGIT[charge] || String(charge)) + '⁺';
+            else if (charge < -1) chargeStr = (SUP_DIGIT[-charge] || String(-charge)) + '⁻';
+            let protonStr = '';
+            if (numProtonsOnSpecies === 1) protonStr = 'H';
+            else if (numProtonsOnSpecies > 1) protonStr = 'H' + (SUB[numProtonsOnSpecies] || numProtonsOnSpecies);
+            return `${protonStr}${baseName}${chargeStr}`;
+        }
+
+        // Returns axis label depending on solvent: 'pH' for water, lyonium notation otherwise
+        function getAxisLabel(pks) {
+            return Math.abs(parseFloat(pks) - 14.00) < 0.005 ? 'pH' : '−lg\u2009a(SH₂⁺)';
+        }
+
+        // Download an array-of-arrays as CSV
+        function downloadCSV(filename, rows) {
+            const csv = rows.map(r => r.map(v => (v === null || v === undefined) ? '' : v).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         // CO₂ formation function m̄ for H₂CO₃ (Eq. [35])
         function co2FormationFunction(ph) {
             const h = Math.pow(10, -ph);

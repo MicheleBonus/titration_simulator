@@ -1330,7 +1330,7 @@
                 title: 'Wendepunktanalyse (Gl. [50–54])',
                 xaxis: { title: 'Volumen (mL)', range: [0, plot_end_volume_ml] },
                 yaxis: { title: getAxisLabel(params.pks), side: 'left' },
-                yaxis2: { title: 'd²pH/dV²', side: 'right', overlaying: 'y' },
+                yaxis2: { title: `d²(${getAxisLabel(params.pks)})/dV²`, side: 'right', overlaying: 'y' },
                 template: 'plotly_dark',
                 shapes: shapes,
                 legend: { yanchor: "top", y: 0.95, xanchor: "left", x: 0.05 }

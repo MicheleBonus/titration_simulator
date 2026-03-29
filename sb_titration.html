@@ -767,6 +767,7 @@
             const components = [];
             const validationErrors = [];
 
+            let anyPkaReordered = false;
             componentDivs.forEach((div, compIdx) => {
                 const symbol = div.querySelector('.comp-symbol').value || 'X';
                 const concentration = parseFloat(div.querySelector('.comp-conc').value) || 0.1;
@@ -784,12 +785,20 @@
                     setComponentFieldError(inp, '');
                     pkas.push(val);
                 });
+                const unsortedPkas = [...pkas];
                 pkas.sort((a, b) => a - b);
+                if (pkas.some((v, i) => v !== unsortedPkas[i])) {
+                    anyPkaReordered = true;
+                }
                 components.push({ symbol, concentration, n_protons: pkas.length, pkas, is_acid: isAcid });
             });
 
             if (validationErrors.length > 0 || components.some(comp => comp.pkas.length === 0)) {
                 return { valid: false, validationErrors, components, analyte_is_acid: isAcid };
+            }
+
+            if (anyPkaReordered) {
+                showSimulationNotice('Hinweis: pKₐ-Werte wurden in aufsteigender Reihenfolge sortiert.');
             }
 
             return {
@@ -845,7 +854,7 @@
 
                 // Species labels for this component
                 const labels = Array.from({length: n_k + 1}, (_, i) =>
-                    formatSpeciesLabel(comp.symbol, n_k, n_k - i, comp.is_acid));
+                    formatSpeciesLabelPlain(comp.symbol, n_k, n_k - i, comp.is_acid));
                 all_species_labels.push(labels);
 
                 // Species concentrations

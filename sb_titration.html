@@ -1465,7 +1465,7 @@
             const dc_dph = numGradient(c_values, titration.phs);
             const beta_dynamic = dc_dph.map(v => Math.abs(v));
 
-            const maxStatic = Math.max(...beta_static, Number.EPSILON);
+            const maxStatic = Math.max(...beta_static.filter(v => v !== null), Number.EPSILON);
             const maxDynamic = Math.max(...beta_dynamic, Number.EPSILON);
             const isNormalized = displayMode === 'normalized';
 

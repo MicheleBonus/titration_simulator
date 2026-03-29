@@ -1224,7 +1224,7 @@
             const maxDynamic = Math.max(...beta_dynamic, Number.EPSILON);
             const isNormalized = displayMode === 'normalized';
 
-            const betaStaticY = isNormalized ? beta_static.map(v => v / maxStatic) : beta_static;
+            const betaStaticY = isNormalized ? beta_static.map(v => v === null ? null : v / maxStatic) : beta_static;
             const betaDynamicY = isNormalized ? beta_dynamic.map(v => v / maxDynamic) : beta_dynamic;
 
             const trace1 = {

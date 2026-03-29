@@ -155,8 +155,21 @@
                         <option value="base">Base</option>
                     </select>
                     
-                    <label for="pks">Lösungsmittel pK<sub>L</sub>: <span id="pks_value">14.00</span></label>
-                    <input type="range" id="pks" min="0" max="30" value="14.0" step="0.01" title="Die Autoprotolysekonstante des Lösungsmittels (z.B. ist pKL für Wasser pKw = 14.00).">
+                    <label for="solvent_select">Lösungsmittel</label>
+                    <select id="solvent_select">
+                        <option value="14.00|protic" selected>Wasser (pK<sub>L</sub> = 14.00)</option>
+                        <option value="16.90|protic">Methanol (pK<sub>L</sub> = 16.90)</option>
+                        <option value="19.10|protic">Ethanol (pK<sub>L</sub> = 19.10)</option>
+                        <option value="14.45|protic">Eisessig (pK<sub>L</sub> = 14.45)</option>
+                        <option value="29.40|polar-aprotic">DMF (pK<sub>L</sub> = 29.40)</option>
+                        <option value="33.30|polar-aprotic">Acetonitril (pK<sub>L</sub> = 33.30)</option>
+                        <option value="35.00|polar-aprotic">DMSO (pK<sub>L</sub> = 35.00)</option>
+                        <option value="custom|custom">Benutzerdefiniert</option>
+                    </select>
+                    <label for="pks">pK<sub>L</sub>: <span id="pks_value">14.00</span></label>
+                    <input type="number" id="pks" min="0" max="50" value="14.0" step="0.01"
+                           readonly title="Autoprotolysekonstante des Lösungsmittels. Bei 'Benutzerdefiniert' editierbar.">
+                    <small id="solvent-warning" style="color: var(--pico-del-color); display:none;"></small>
                     
                     <hr>
                     
@@ -237,21 +250,47 @@
                 </article>
 
                 <article id="tab2" class="tab-content">
-                    <h3>Ableitungsdiagramme zur Endpunkterkennung</h3>
-                    <div id="plot-derivatives" style="width:100%; height:450px;"></div>
+                    <h3>Endpunktanalyse</h3>
+                    <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                        <button id="tab2-btn-derivatives" onclick="switchTab2('derivatives')"
+                                style="flex:1;">Ableitungsdiagramme</button>
+                        <button id="tab2-btn-gran" class="outline" onclick="switchTab2('gran')"
+                                style="flex:1;">Gran-Plot</button>
+                    </div>
+                    <div id="tab2-panel-derivatives">
+                        <div id="plot-derivatives" style="width:100%; height:450px;"></div>
+                    </div>
+                    <div id="tab2-panel-gran" style="display:none;">
+                        <p style="font-size:0.9em; color:var(--pico-muted-color);">
+                            Linearisierung der Titrationskurve (Gran 1952).
+                            G₁ = (V₀+V)·10<sup>−p[H]</sup> (vor ÄP) und
+                            G₂ = (V₀+V)·10<sup>p[H]−pK<sub>L</sub></sup> (nach ÄP)
+                            sind jeweils linear in V; die Nullstellen geben das Äquivalenzvolumen.
+                        </p>
+                        <div id="plot-gran" style="width:100%; height:430px;"></div>
+                    </div>
                 </article>
 
                 <article id="tab3" class="tab-content">
                     <h3>Speziesverteilung und Bjerrum-Funktion (mittlere Protonenzahl n&#772;)</h3>
-                    <fieldset>
-                        <legend>Y-Achse anzeigen als:</legend>
-                        <input type="radio" name="species_plot_type" value="fraction" id="radio-fraction" checked>
-                        <label for="radio-fraction">Anteile der Spezies (α)</label>
-                        <input type="radio" name="species_plot_type" value="concentration" id="radio-concentration">
-                        <label for="radio-concentration">Molare Konzentration</label>
-                        <input type="radio" name="species_plot_type" value="nbar" id="radio-nbar">
-                        <label for="radio-nbar" title="Bjerrum-Funktion: n̄ = mittlere Protonenzahl am Anion; α_i ist der Anteil von H_{q-i}L (Gl. [10])">Bjerrum-Funktion (n&#772;)</label>
-                    </fieldset>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                        <fieldset>
+                            <legend>Y-Achse anzeigen als:</legend>
+                            <input type="radio" name="species_plot_type" value="fraction" id="radio-fraction" checked>
+                            <label for="radio-fraction">Anteile der Spezies (α)</label>
+                            <input type="radio" name="species_plot_type" value="concentration" id="radio-concentration">
+                            <label for="radio-concentration">Molare Konzentration</label>
+                            <input type="radio" name="species_plot_type" value="nbar" id="radio-nbar">
+                            <label for="radio-nbar" title="Bjerrum-Funktion: n̄ = mittlere Protonenzahl am Anion; α_i ist der Anteil von H_{q-i}L (Gl. [10])">Bjerrum-Funktion (n&#772;)</label>
+                        </fieldset>
+                        <fieldset>
+                            <legend>X-Achse:</legend>
+                            <input type="radio" name="species_x_axis" value="volume" id="radio-x-volume" checked>
+                            <label for="radio-x-volume">Volumen (mL)</label>
+                            <input type="radio" name="species_x_axis" value="ph" id="radio-x-ph">
+                            <label for="radio-x-ph" title="Klassisches Bjerrum-Diagramm: Speziesverteilung gegen pH">pH-Achse (Bjerrum)</label>
+                        </fieldset>
+                    </div>
                     <small>Konvention: \(\alpha[0] = H_qL\) (voll protoniert), \(\alpha[q] = L\) (voll deprotoniert).</small>
                     <div id="plot-species" style="width:100%; height:500px;"></div>
                 </article>
@@ -360,7 +399,7 @@
             "Phenolphthalein": { range: [8.0, 9.6], colors: ["rgba(0,0,0,0)", "deeppink"] },
             "Thymolphthalein": { range: [8.3, 10.5], colors: ["rgba(0,0,0,0)", "blue"] },
             "Alizaringelb": { range: [10.1, 12.0], colors: ["yellow", "orangered"] },
-            "Nitramin": { range: [10.8, 13.0], colors: ["rgba(0,0,0,0)", "orangebrown"] },
+            "Nitramin": { range: [10.8, 13.0], colors: ["rgba(0,0,0,0)", "saddlebrown"] },
             "Tropaeolin O": { range: [11.1, 12.7], colors: ["yellow", "orange"] },
         };
 
@@ -454,6 +493,86 @@
                 nbar += (q - i) * alphas[i];
             }
             return nbar;
+        }
+
+        // Unicode subscript/superscript maps for Plotly trace names (no HTML in Plotly legends)
+        const SUB = ['₀','₁','₂','₃','₄','₅','₆','₇','₈','₉'];
+        const SUP_DIGIT = ['⁰','¹','²','³','⁴','⁵','⁶','⁷','⁸','⁹'];
+
+        function formatSpeciesLabelPlain(baseName, totalProtons, numProtonsOnSpecies, isAcid) {
+            const charge = isAcid ? (numProtonsOnSpecies - totalProtons) : numProtonsOnSpecies;
+            let chargeStr = '';
+            if (charge === 1) chargeStr = '⁺';
+            else if (charge === -1) chargeStr = '⁻';
+            else if (charge > 1) chargeStr = (SUP_DIGIT[charge] || String(charge)) + '⁺';
+            else if (charge < -1) chargeStr = (SUP_DIGIT[-charge] || String(-charge)) + '⁻';
+            let protonStr = '';
+            if (numProtonsOnSpecies === 1) protonStr = 'H';
+            else if (numProtonsOnSpecies > 1) protonStr = 'H' + (SUB[numProtonsOnSpecies] || numProtonsOnSpecies);
+            return `${protonStr}${baseName}${chargeStr}`;
+        }
+
+        // Returns axis label depending on solvent: 'pH' for water, lyonium notation otherwise
+        function getAxisLabel(pks) {
+            return Math.abs(parseFloat(pks) - 14.00) < 0.005 ? 'pH' : '−lg\u2009a(SH₂⁺)';
+        }
+
+        function interpolatePH(volumes_ml, phs, target_vol_ml) {
+            for (let i = 0; i < volumes_ml.length - 1; i++) {
+                if (volumes_ml[i] <= target_vol_ml && volumes_ml[i + 1] >= target_vol_ml) {
+                    const frac = (target_vol_ml - volumes_ml[i]) / (volumes_ml[i + 1] - volumes_ml[i]);
+                    return phs[i] + frac * (phs[i + 1] - phs[i]);
+                }
+            }
+            return null;
+        }
+
+        function linReg(xs, ys) {
+            const n = xs.length;
+            if (n < 2) return null;
+            const sx = xs.reduce((a, b) => a + b, 0);
+            const sy = ys.reduce((a, b) => a + b, 0);
+            const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0);
+            const sxx = xs.reduce((a, x) => a + x * x, 0);
+            const det = n * sxx - sx * sx;
+            if (Math.abs(det) < 1e-12) return null;
+            const m = (n * sxy - sx * sy) / det;
+            const b = (sy - m * sx) / n;
+            const zero = Math.abs(m) > 1e-12 ? -b / m : null;
+            return { m, b, zero };
+        }
+
+        // Download an array-of-arrays as CSV
+        function downloadCSV(filename, rows) {
+            const csv = rows.map(r => r.map(v => (v === null || v === undefined) ? '' : v).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function attachCSVExport(plotDivId, getRowsFn) {
+            const plotEl = document.getElementById(plotDivId);
+            if (!plotEl) return;
+            // Remove previous export bar if present
+            const prev = plotEl.parentElement.querySelector('.export-bar');
+            if (prev) prev.remove();
+            const bar = document.createElement('div');
+            bar.className = 'export-bar';
+            bar.style.cssText = 'text-align:right; margin-top:0.4rem;';
+            const btn = document.createElement('button');
+            btn.className = 'secondary outline';
+            btn.style.cssText = 'width:auto; padding:0.25rem 0.7rem; font-size:0.82em;';
+            btn.textContent = '⬇ CSV';
+            btn.addEventListener('click', () => {
+                const { rows, filename } = getRowsFn();
+                downloadCSV(filename, rows);
+            });
+            bar.appendChild(btn);
+            plotEl.parentElement.appendChild(bar);
         }
 
         // CO₂ formation function m̄ for H₂CO₃ (Eq. [35])
@@ -565,6 +684,8 @@
             analyteMode: document.getElementById('analyte_mode'),
             pksSlider: document.getElementById('pks'),
             pksValue: document.getElementById('pks_value'),
+            solventSelect: document.getElementById('solvent_select'),
+            solventWarning: document.getElementById('solvent-warning'),
             vAnalyte: document.getElementById('v_analyte'),
             mixtureContainer: document.getElementById('mixture-components'),
             addAnalyteBtn: document.getElementById('add-analyte-btn'),
@@ -587,27 +708,6 @@
 
         let currentSimulationData = {};
         let mixtureComponentCount = 0;
-
-        function formatSpeciesLabel(baseName, totalProtons, numProtonsOnSpecies, isAcid) {
-            let charge;
-            if (isAcid) {
-                charge = numProtonsOnSpecies - totalProtons;
-            } else {
-                charge = numProtonsOnSpecies;
-            }
-
-            let chargeStr = "";
-            if (charge === 1) chargeStr = "<sup>+</sup>";
-            else if (charge === -1) chargeStr = "<sup>-</sup>";
-            else if (charge > 1) chargeStr = `<sup>${charge}+</sup>`;
-            else if (charge < -1) chargeStr = `<sup>${-charge}-</sup>`;
-
-            let protonStr = "";
-            if (numProtonsOnSpecies === 1) protonStr = "H";
-            else if (numProtonsOnSpecies > 1) protonStr = `H<sub>${numProtonsOnSpecies}</sub>`;
-
-            return `${protonStr}${baseName}${chargeStr}`;
-        }
 
         // --- Mixture component management ---
         const DEFAULT_PKAS = {
@@ -733,6 +833,7 @@
             const components = [];
             const validationErrors = [];
 
+            let anyPkaReordered = false;
             componentDivs.forEach((div, compIdx) => {
                 const symbol = div.querySelector('.comp-symbol').value || 'X';
                 const concentration = parseFloat(div.querySelector('.comp-conc').value) || 0.1;
@@ -750,12 +851,20 @@
                     setComponentFieldError(inp, '');
                     pkas.push(val);
                 });
+                const unsortedPkas = [...pkas];
                 pkas.sort((a, b) => a - b);
+                if (pkas.some((v, i) => v !== unsortedPkas[i])) {
+                    anyPkaReordered = true;
+                }
                 components.push({ symbol, concentration, n_protons: pkas.length, pkas, is_acid: isAcid });
             });
 
             if (validationErrors.length > 0 || components.some(comp => comp.pkas.length === 0)) {
                 return { valid: false, validationErrors, components, analyte_is_acid: isAcid };
+            }
+
+            if (anyPkaReordered) {
+                showSimulationNotice('Hinweis: pKₐ-Werte wurden in aufsteigender Reihenfolge sortiert.');
             }
 
             return {
@@ -789,6 +898,7 @@
             let total_moles_titratable = 0;
             const eq_vols_l = [];
             const half_eq_vols_l = [];
+            const half_eq_pkas = [];
             const all_species_labels = [];
             const all_species_concentrations = [];
 
@@ -807,11 +917,12 @@
                 let cumHalf = cumulative_vol - n_k * step_vol;
                 for (let i = 0; i < n_k; i++) {
                     half_eq_vols_l.push(cumHalf + (i + 0.5) * step_vol);
+                    half_eq_pkas.push(comp.pkas[i]);
                 }
 
                 // Species labels for this component
                 const labels = Array.from({length: n_k + 1}, (_, i) =>
-                    formatSpeciesLabel(comp.symbol, n_k, n_k - i, comp.is_acid));
+                    formatSpeciesLabelPlain(comp.symbol, n_k, n_k - i, comp.is_acid));
                 all_species_labels.push(labels);
 
                 // Species concentrations
@@ -853,7 +964,7 @@
 
             currentSimulationData = {
                 titration, params, volumes_ml, n_protons, plot_end_volume_ml,
-                eq_vols_l, half_eq_vols_l, species_labels, species_concentrations,
+                eq_vols_l, half_eq_vols_l, half_eq_pkas, species_labels, species_concentrations,
                 all_species_labels, all_species_concentrations, phi_values,
                 total_moles_titratable, inflection_points, phiIsValid
             };
@@ -883,16 +994,29 @@
             return points;
         }
         
+        let tab2Mode = 'derivatives';
+
+        function switchTab2(mode) {
+            tab2Mode = mode;
+            document.getElementById('tab2-panel-derivatives').style.display = mode === 'derivatives' ? 'block' : 'none';
+            document.getElementById('tab2-panel-gran').style.display = mode === 'gran' ? 'block' : 'none';
+            document.getElementById('tab2-btn-derivatives').classList.toggle('outline', mode !== 'derivatives');
+            document.getElementById('tab2-btn-gran').classList.toggle('outline', mode === 'derivatives');
+            if (mode === 'gran') plotGranFunction();
+            else plotDerivatives();
+        }
+
         function updateAllPlots() {
             plotMainCurve();
-            plotDerivatives();
+            if (tab2Mode === 'gran') plotGranFunction();
+            else plotDerivatives();
             plotSpecies();
             plotBufferCapacity();
             plotInflectionPoints();
         }
 
         function plotMainCurve() {
-            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, half_eq_vols_l,
+            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, half_eq_vols_l, half_eq_pkas,
                     species_labels, species_concentrations, phi_values, inflection_points,
                     total_moles_titratable, phiIsValid } = currentSimulationData;
 
@@ -912,7 +1036,7 @@
                 ? half_eq_vols_l.map(v => (params.c_titrant * v) / total_moles_titratable)
                 : half_eq_vols_l.map(v => v * 1000);
             const x_end = usePhiAxis
-                ? (x_eq.length > 0 ? Math.max(...x_eq) * 1.5 : plot_end_volume_ml)
+                ? (x_eq.length > 0 ? Math.max(...x_eq) * 1.5 : 2.0)
                 : plot_end_volume_ml;
             const x_title = usePhiAxis ? 'Titrationsgrad Φ = C·V / (C₀·V₀)' : 'Volumen zugegebener Maßlösung (mL)';
 
@@ -920,7 +1044,7 @@
             const layout = {
                 title: usePhiAxis ? 'Titrationskurve (normiert)' : 'Titrationskurve',
                 xaxis: { title: x_title, range: [0, x_end] },
-                yaxis: { title: 'pH', range: [0, params.pks] },
+                yaxis: { title: getAxisLabel(params.pks), range: [0, params.pks] },
                 template: 'plotly_dark',
                 shapes: [],
                 annotations: [],
@@ -974,7 +1098,6 @@
             });
             x_half.forEach((xv, i) => {
                 layout.shapes.push({ type: 'line', x0: xv, y0: 0, x1: xv, y1: params.pks, line: { color: 'gray', width: 1, dash: 'dot' } });
-                layout.annotations.push({ x: xv, y: 0, text: `½ ÄP ${i+1}`, showarrow: false, xanchor: 'left', yanchor: 'bottom' });
             });
 
             // Inflection point markers
@@ -1003,7 +1126,7 @@
                 let hovertemplate = usePhiAxis
                     ? "<b>Φ: %{x:.3f}</b><br>"
                     : "<b>Volumen: %{x:.2f} mL</b><br>";
-                hovertemplate += "<b>pH: %{y:.2f}</b><br><br>[H₃O⁺]: %{customdata[0]:.2e} M<br>[OH⁻]: %{customdata[1]:.2e} M<br><extra></extra>";
+                hovertemplate += `<b>${getAxisLabel(params.pks)}: %{y:.2f}</b><br><br>[H₃O⁺]: %{customdata[0]:.2e} M<br>[OH⁻]: %{customdata[1]:.2e} M<br><extra></extra>`;
                 species_labels.forEach((label, i) => {
                     hovertemplate += `[${label}]: %{customdata[${i+2}]:.2e} M<br>`;
                 });
@@ -1015,7 +1138,7 @@
                 });
             }
 
-            computeEquivalenceMassTable(params, eq_vols_l);
+            computeEquivalenceMassTable(params, eq_vols_l, volumes_ml, titration.phs);
 
             const isAcid = params.analyte_is_acid;
             const yLevels = [0.85, 0.70, 0.55, 0.40, 0.25];
@@ -1034,28 +1157,54 @@
                 });
             });
 
-            if (x_half.length > 0) {
+            const halfAnnotYLevels = [0.20, 0.30, 0.12, 0.38, 0.08];
+            x_half.forEach((xv, i) => {
+                const pka = half_eq_pkas[i];
+                const pkaStr = pka !== undefined ? `= ${pka.toFixed(2)}` : '';
                 layout.annotations.push({
-                    x: x_half[0], y: params.pks*0.20,
-                    text: '½ ÄP 1 ≈ pKₐ₁ (Puffer)',
+                    x: xv,
+                    y: params.pks * (halfAnnotYLevels[i % halfAnnotYLevels.length]),
+                    text: `½ ÄP ${i+1} ≈ pKₐ${i+1} ${pkaStr}`,
                     showarrow: false,
-                    font: { size: 12, color: 'lightgray' },
+                    font: { size: 11, color: 'lightgray' },
                     xanchor: 'left', yanchor: 'bottom'
                 });
-            }
+            });
 
             Plotly.newPlot('plot-main', data, layout, {responsive: true});
+            attachCSVExport('plot-main', () => {
+                const { titration, params, volumes_ml, species_labels } = currentSimulationData;
+                if (!titration) return { rows: [], filename: 'titration_curve.csv' };
+                const axLabel = getAxisLabel(params.pks);
+                const header = ['V_mL', axLabel, '[H3O+]_M', '[OH-]_M',
+                    ...species_labels.map(l => `[${l}]_M`)];
+                const rows = [header];
+                volumes_ml.forEach((v, i) => {
+                    const h = Math.pow(10, -titration.phs[i]);
+                    const oh = Math.pow(10, titration.phs[i] - params.pks);
+                    const specConcs = (currentSimulationData.species_concentrations || []).map(sc => sc[i] !== undefined ? sc[i].toExponential(4) : '');
+                    rows.push([v.toFixed(4), titration.phs[i].toFixed(4),
+                        h.toExponential(4), oh.toExponential(4), ...specConcs]);
+                });
+                return { rows, filename: 'titration_curve.csv' };
+            });
         }
 
-        function computeEquivalenceMassTable(params, eq_vols_l) {
+        function computeEquivalenceMassTable(params, eq_vols_l, volumes_ml, phs) {
             const totalEq = eq_vols_l.length;
             const totalVol = eq_vols_l.length > 0 ? eq_vols_l[eq_vols_l.length-1]*1000 : 0;
             const nComp = params.components.length;
             const tableDiv = document.getElementById('equivalence-table');
-            tableDiv.innerHTML = `
+            let html = `
                 <div><h3>Äquivalenzpunkte</h3><p>${totalEq}</p></div>
                 <div><h3>Komponenten</h3><p>${nComp}</p></div>
                 <div><h3>Gesamt-ÄP-Volumen</h3><p>${totalVol.toFixed(2)} mL</p></div>`;
+            eq_vols_l.forEach((v, i) => {
+                const ph = interpolatePH(volumes_ml, phs, v * 1000);
+                const phStr = ph !== null ? ph.toFixed(2) : '—';
+                html += `<div><h3>ÄP ${i+1} — ${getAxisLabel(params.pks)}</h3><p>${phStr}</p></div>`;
+            });
+            tableDiv.innerHTML = html;
         }
         
         function plotDerivatives() {
@@ -1082,8 +1231,8 @@
                 grid: { rows: 1, columns: 2, pattern: 'independent' },
                 xaxis: { title: 'Volumen (mL)', range: [0, plot_end_volume_ml] },
                 xaxis2: { title: 'Volumen (mL)', range: [0, plot_end_volume_ml] },
-                yaxis: { title: 'ΔpH/ΔV' },
-                yaxis2: { title: 'Δ²pH/ΔV²' },
+                yaxis: { title: `Δ(${getAxisLabel(params.pks)})/ΔV` },
+                yaxis2: { title: `Δ²(${getAxisLabel(params.pks)})/ΔV²` },
                 shapes: shapes,
                 template: 'plotly_dark',
                 showlegend: false
@@ -1091,10 +1240,140 @@
 
             Plotly.newPlot('plot-derivatives', [trace1, trace2], layout, {responsive: true});
         }
-        
+
+        function plotGranFunction() {
+            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l } = currentSimulationData;
+            if (!titration || volumes_ml.length < 4 || eq_vols_l.length === 0) {
+                Plotly.purge('plot-gran');
+                document.getElementById('plot-gran').innerHTML = '<p>Nicht genügend Daten für Gran-Plot.</p>';
+                return;
+            }
+
+            const V0_ml = params.v_analyte * 1000;
+            const pKL = params.pks;
+            const isAcidAnalyte = params.analyte_is_acid;
+            const colors = ['royalblue', 'tomato', 'mediumseagreen', 'orange', 'violet'];
+            const data = [];
+            const shapes = [];
+            const annotations = [];
+
+            eq_vols_l.forEach((eq_v_l, eqIdx) => {
+                const Veq = eq_v_l * 1000;
+                const prevVeq = eqIdx > 0 ? eq_vols_l[eqIdx - 1] * 1000 : 0;
+                const nextVeq = eqIdx < eq_vols_l.length - 1 ? eq_vols_l[eqIdx + 1] * 1000 : plot_end_volume_ml;
+                const color = colors[eqIdx % colors.length];
+
+                // Window: use 35% of surrounding segment on each side
+                const windowBefore = Math.max((Veq - prevVeq) * 0.35, 1.0);
+                const windowAfter = Math.max((nextVeq - Veq) * 0.35, 1.0);
+
+                const beforeIdx = volumes_ml.reduce((acc, v, i) => {
+                    if (v >= Veq - windowBefore && v < Veq) acc.push(i);
+                    return acc;
+                }, []);
+                const afterIdx = volumes_ml.reduce((acc, v, i) => {
+                    if (v > Veq && v <= Veq + windowAfter) acc.push(i);
+                    return acc;
+                }, []);
+
+                // Gran functions:
+                // isAcidAnalyte (base titrant → acid): G1 = (V0+V)*10^(-pH), G2 = (V0+V)*10^(pH-pKL)
+                // !isAcidAnalyte (acid titrant → base): G1 = (V0+V)*10^(pH-pKL), G2 = (V0+V)*10^(-pH)
+                const granG = (idx, isBefore) => {
+                    const v = volumes_ml[idx];
+                    const ph = titration.phs[idx];
+                    const f = V0_ml + v;
+                    if (isAcidAnalyte) {
+                        return isBefore ? f * Math.pow(10, -ph) : f * Math.pow(10, ph - pKL);
+                    } else {
+                        return isBefore ? f * Math.pow(10, ph - pKL) : f * Math.pow(10, -ph);
+                    }
+                };
+
+                const g1x = beforeIdx.map(i => volumes_ml[i]);
+                const g1y = beforeIdx.map(i => granG(i, true));
+                const g2x = afterIdx.map(i => volumes_ml[i]);
+                const g2y = afterIdx.map(i => granG(i, false));
+
+                // Traces for data points
+                if (g1x.length > 0) {
+                    data.push({
+                        x: g1x, y: g1y, mode: 'markers', name: `G₁ (vor ÄP ${eqIdx+1})`,
+                        marker: { color, size: 5 }, legendgroup: `ep${eqIdx}`
+                    });
+                }
+                if (g2x.length > 0) {
+                    data.push({
+                        x: g2x, y: g2y, mode: 'markers', name: `G₂ (nach ÄP ${eqIdx+1})`,
+                        marker: { color, size: 5, symbol: 'diamond' }, legendgroup: `ep${eqIdx}`
+                    });
+                }
+
+                // Linear regression + extrapolation lines
+                const reg1 = linReg(g1x, g1y);
+                const reg2 = linReg(g2x, g2y);
+
+                if (reg1 && reg1.zero !== null && isFinite(reg1.zero) && reg1.zero > 0 && reg1.zero < plot_end_volume_ml) {
+                    const xA = Math.max(0, g1x[0] - windowBefore * 0.5);
+                    const xB = reg1.zero;
+                    data.push({
+                        x: [xA, xB], y: [reg1.m*xA+reg1.b, 0],
+                        mode: 'lines', line: { color, dash: 'dot', width: 1.5 },
+                        name: `Extrap. G₁(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
+                    });
+                    annotations.push({
+                        x: reg1.zero, y: 0, text: `ÄP ${eqIdx+1}<br>${reg1.zero.toFixed(2)} mL`,
+                        showarrow: true, arrowhead: 2, ax: 0, ay: -30,
+                        font: { size: 10, color }, bgcolor: 'rgba(0,0,0,0.5)', borderpad: 2
+                    });
+                }
+                if (reg2 && reg2.zero !== null && isFinite(reg2.zero) && reg2.zero > 0 && reg2.zero < plot_end_volume_ml) {
+                    const xA = reg2.zero;
+                    const xB = g2x[g2x.length-1] + windowAfter * 0.5;
+                    data.push({
+                        x: [xA, xB], y: [0, reg2.m*xB+reg2.b],
+                        mode: 'lines', line: { color, dash: 'dash', width: 1.5 },
+                        name: `Extrap. G₂(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
+                    });
+                    annotations.push({
+                        x: reg2.zero, y: 0, text: `ÄP ${eqIdx+1}<br>${reg2.zero.toFixed(2)} mL`,
+                        showarrow: true, arrowhead: 2, ax: 0, ay: -30,
+                        font: { size: 10, color }, bgcolor: 'rgba(0,0,0,0.5)', borderpad: 2
+                    });
+                }
+
+                // Vertical line at known EP
+                shapes.push({
+                    type: 'line', x0: Veq, y0: 0, x1: Veq, y1: 1,
+                    xref: 'x', yref: 'paper',
+                    line: { color: 'crimson', dash: 'dash', width: 1 }
+                });
+            });
+
+            const gLabel = isAcidAnalyte
+                ? 'G₁=(V₀+V)·10⁻ᵖᴴ / G₂=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ'
+                : 'G₁=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ / G₂=(V₀+V)·10⁻ᵖᴴ';
+
+            Plotly.newPlot('plot-gran', data, {
+                title: `Gran-Plot — ${gLabel}`,
+                xaxis: { title: 'Volumen zugegebener Maßlösung (mL)', range: [0, plot_end_volume_ml] },
+                yaxis: { title: 'Gran-Funktion G(V)' },
+                template: 'plotly_dark',
+                shapes, annotations,
+                legend: { yanchor: 'top', y: 0.95, xanchor: 'left', x: 0.05 }
+            }, { responsive: true });
+        }
+
         function plotSpecies() {
             const { volumes_ml, titration, species_labels, species_concentrations, plot_end_volume_ml, params,
                     all_species_labels, all_species_concentrations } = currentSimulationData;
+            const xMode = (document.querySelector('input[name="species_x_axis"]:checked') || {value:'volume'}).value;
+            const usePhAxis = xMode === 'ph';
+            const x_data_species = usePhAxis ? titration.phs : volumes_ml;
+            const x_title_species = usePhAxis ? getAxisLabel(params.pks) : 'Volumen zugegebener Maßlösung (mL)';
+            const x_range_species = usePhAxis ? [0, params.pks] : [0, plot_end_volume_ml];
+            const x_hover_prefix = usePhAxis ? getAxisLabel(params.pks) : 'Volumen';
+            const x_hover_suffix = usePhAxis ? '' : ' mL';
             if (volumes_ml.length === 0) {
                 document.getElementById('plot-species').innerHTML = '<p>Keine Daten zur Darstellung der Speziesverteilung verfügbar.</p>';
                 return;
@@ -1108,17 +1387,17 @@
                 params.components.forEach((comp, k) => {
                     if (titration.nbar_values[k]) {
                         data.push({
-                            x: volumes_ml, y: titration.nbar_values[k],
+                            x: x_data_species, y: titration.nbar_values[k],
                             mode: 'lines', name: `n̄(${comp.symbol})`,
                             line: { width: 2 },
-                            hovertemplate: `<b>n̄(${comp.symbol})</b><br>Volumen: %{x:.2f} mL<br>n̄: %{y:.3f}<extra></extra>`
+                            hovertemplate: `<b>n̄(${comp.symbol})</b><br>${x_hover_prefix}: %{x:.2f}${x_hover_suffix}<br>n̄: %{y:.3f}<extra></extra>`
                         });
                     }
                 });
 
                 const layout = {
                     title: 'Bjerrum-Funktion (mittlere Protonenzahl n̄)',
-                    xaxis: { title: 'Volumen zugegebener Maßlösung (mL)', range: [0, plot_end_volume_ml] },
+                    xaxis: { title: x_title_species, range: x_range_species },
                     yaxis: { title: 'n̄ (mittlere Protonenzahl)' },
                     template: 'plotly_dark',
                     hovermode: 'x unified'
@@ -1142,10 +1421,10 @@
                 if (labels && y_source) {
                     labels.forEach((label, i) => {
                         data.push({
-                            x: volumes_ml, y: y_source[i], mode: 'lines',
+                            x: x_data_species, y: y_source[i], mode: 'lines',
                             name: label, line: { color: colors[colorIdx % colors.length] },
                             fill: params.components.length === 1 ? 'tozeroy' : undefined,
-                            hovertemplate: `<b>${label}</b><br>Volumen: %{x:.2f} mL<br>%{y:.3e}<extra></extra>`
+                            hovertemplate: `<b>${label}</b><br>${x_hover_prefix}: %{x:.2f}${x_hover_suffix}<br>%{y:.3e}<extra></extra>`
                         });
                         colorIdx++;
                     });
@@ -1155,7 +1434,7 @@
             const y_axis_title = plot_type === "fraction" ? "Anteil (α)" : "Konzentration (mol/L)";
             const layout = {
                 title: params.components.length > 1 ? 'Speziesverteilung (Gemisch)' : 'Speziesverteilung des Analyten',
-                xaxis: { title: 'Volumen zugegebener Maßlösung (mL)', range: [0, plot_end_volume_ml] },
+                xaxis: { title: x_title_species, range: x_range_species },
                 yaxis: { title: y_axis_title },
                 template: 'plotly_dark',
                 hovermode: 'x unified'
@@ -1176,7 +1455,9 @@
 
             // Static buffer capacity β = |dΔ/dpH| ≈ |1/(dV/dpH)| (Eq. [79])
             const dv_dph = numGradient(titration.volumes, titration.phs);
-            const beta_static = dv_dph.map(v => Math.abs(1 / v));
+            const beta_static = dv_dph.map(v =>
+                (v === 0 || !isFinite(v)) ? null : Math.abs(1 / v)
+            );
 
             // Dynamic buffer capacity βV = |dc/dpH| (Eq. [93-97])
             // c = C·V / (V₀+V) is the current concentration of titrant in the mixture
@@ -1184,11 +1465,11 @@
             const dc_dph = numGradient(c_values, titration.phs);
             const beta_dynamic = dc_dph.map(v => Math.abs(v));
 
-            const maxStatic = Math.max(...beta_static, Number.EPSILON);
+            const maxStatic = Math.max(...beta_static.filter(v => v !== null), Number.EPSILON);
             const maxDynamic = Math.max(...beta_dynamic, Number.EPSILON);
             const isNormalized = displayMode === 'normalized';
 
-            const betaStaticY = isNormalized ? beta_static.map(v => v / maxStatic) : beta_static;
+            const betaStaticY = isNormalized ? beta_static.map(v => v === null ? null : v / maxStatic) : beta_static;
             const betaDynamicY = isNormalized ? beta_dynamic.map(v => v / maxDynamic) : beta_dynamic;
 
             const trace1 = {
@@ -1212,14 +1493,37 @@
                 ? 'Normierte Pufferkapazität (–)'
                 : 'β statisch |dΔ/dpH| (L·mol⁻¹·pH⁻¹)';
 
+            const pkaShapes = [];
+            const pkaAnnotations = [];
+            params.components.forEach((comp) => {
+                comp.pkas.forEach((pka, i) => {
+                    if (pka >= 0 && pka <= params.pks) {
+                        pkaShapes.push({
+                            type: 'line', x0: pka, y0: 0, x1: pka, y1: 1,
+                            xref: 'x', yref: 'paper',
+                            line: { color: 'rgba(255,165,0,0.6)', dash: 'dot', width: 1.5 }
+                        });
+                        pkaAnnotations.push({
+                            x: pka, y: 0.97, xref: 'x', yref: 'paper',
+                            text: `pKₐ${i+1} = ${pka.toFixed(2)} (${comp.symbol})`,
+                            showarrow: false, xanchor: 'center', yanchor: 'top',
+                            font: { size: 10, color: 'orange' },
+                            bgcolor: 'rgba(0,0,0,0.4)', borderpad: 2
+                        });
+                    }
+                });
+            });
+
             const layout = {
                 title: isNormalized
                     ? 'Pufferkapazität (normiert): β/βmax und βV/βVmax'
                     : 'Pufferkapazität: β (statisch) und βV (dynamisch, Gl. [93])',
-                xaxis: { title: 'pH', range: [0, params.pks] },
+                xaxis: { title: getAxisLabel(params.pks), range: [0, params.pks] },
                 yaxis: { title: yAxisTitle, type: yScale },
                 template: 'plotly_dark',
-                legend: { yanchor: 'top', y: 0.95, xanchor: 'right', x: 0.95 }
+                legend: { yanchor: 'top', y: 0.95, xanchor: 'right', x: 0.95 },
+                shapes: pkaShapes,
+                annotations: pkaAnnotations
             };
 
             if (!isNormalized) {
@@ -1233,6 +1537,23 @@
             }
 
             Plotly.newPlot('plot-buffer', [trace1, trace2], layout, { responsive: true });
+            attachCSVExport('plot-buffer', () => {
+                const { titration, params } = currentSimulationData;
+                if (!titration) return { rows: [], filename: 'buffer_capacity.csv' };
+                const axLabel = getAxisLabel(params.pks);
+                const header = [axLabel, 'beta_static', 'beta_dynamic'];
+                const dv_dph2 = numGradient(titration.volumes, titration.phs);
+                const bs2 = dv_dph2.map(v => (v === 0 || !isFinite(v)) ? null : Math.abs(1 / v));
+                const c2 = titration.volumes.map(v => (params.c_titrant * v) / (params.v_analyte + v));
+                const dc2 = numGradient(c2, titration.phs);
+                const bd2 = dc2.map(v => isFinite(v) ? Math.abs(v) : null);
+                const rows = [header, ...titration.phs.map((ph, i) => [
+                    ph.toFixed(4),
+                    bs2[i] !== null ? bs2[i].toExponential(4) : '',
+                    bd2[i] !== null ? bd2[i].toExponential(4) : ''
+                ])];
+                return { rows, filename: 'buffer_capacity.csv' };
+            });
         }
 
         // Inflection points dedicated tab
@@ -1290,8 +1611,8 @@
             const layout = {
                 title: 'Wendepunktanalyse (Gl. [50–54])',
                 xaxis: { title: 'Volumen (mL)', range: [0, plot_end_volume_ml] },
-                yaxis: { title: 'pH', side: 'left' },
-                yaxis2: { title: 'd²pH/dV²', side: 'right', overlaying: 'y' },
+                yaxis: { title: getAxisLabel(params.pks), side: 'left' },
+                yaxis2: { title: `d²(${getAxisLabel(params.pks)})/dV²`, side: 'right', overlaying: 'y' },
                 template: 'plotly_dark',
                 shapes: shapes,
                 legend: { yanchor: "top", y: 0.95, xanchor: "left", x: 0.05 }
@@ -1312,6 +1633,7 @@
 
             const c_r2 = parseFloat(document.getElementById('bt_c_r2').value);
             const pka_r2 = parseFloat(document.getElementById('bt_pka_r2').value);
+            const pks = parseFloat(ui.pksSlider.value);
 
             const resultsDiv = document.getElementById('back-titration-results');
             const plotDiv = document.getElementById('plot-back-titration');
@@ -1340,7 +1662,7 @@
                 v_analyte: v_before_titration_l,
                 components: [{ symbol: 'R1', concentration: c_r1_total_initial, pkas: [r1_is_base ? 15.74 : -1.74], is_acid: !r1_is_base, n_protons: 1 }],
                 analyte_is_acid: !r1_is_base, c_titrant: c_r2,
-                pkas_titrant: [pka_r2], pks: 14.0, co2_concentration: 0,
+                pkas_titrant: [pka_r2], pks: pks, co2_concentration: 0,
             };
             const sim_total = new TitrationCalculator(params_total);
             const eq_vol_total_ml = (moles_r1_added / c_r2) * 1000.0;
@@ -1381,12 +1703,12 @@
             const layout = {
                 title: 'Rücktitration: Titration von R1 (Überschuss) mit R2 (Maßlösung)',
                 xaxis: { title: `Volumen ${r2_label} (mL)`, range: [0, plot_max_x] },
-                yaxis: { title: 'pH', range: [0, 14] },
+                yaxis: { title: getAxisLabel(pks), range: [0, pks] },
                 template: 'plotly_dark',
                 legend: { yanchor: "top", y: 0.95, xanchor: "left", x: 0.05 },
                 shapes: [
-                    { type: 'line', x0: eq_vol_leftover_ml, y0: 0, x1: eq_vol_leftover_ml, y1: 14, line: { color: 'crimson', dash: 'dash' } },
-                    { type: 'line', x0: eq_vol_total_ml, y0: 0, x1: eq_vol_total_ml, y1: 14, line: { color: 'gray', dash: 'dash' } }
+                    { type: 'line', x0: eq_vol_leftover_ml, y0: 0, x1: eq_vol_leftover_ml, y1: pks, line: { color: 'crimson', dash: 'dash' } },
+                    { type: 'line', x0: eq_vol_total_ml, y0: 0, x1: eq_vol_total_ml, y1: pks, line: { color: 'gray', dash: 'dash' } }
                 ],
                 annotations: [
                     { text: `Tatsächlicher ÄP<br>${eq_vol_leftover_ml.toFixed(2)} mL`, x: eq_vol_leftover_ml, y: 1, yanchor: 'bottom', showarrow: false },
@@ -1426,8 +1748,42 @@
             addMixtureComponent({ n: 2, pkas: isAcid ? [2.15, 7.20] : [6.35, 10.33], symbol: isAcid ? 'A' : 'B' });
             runFullSimulation();
         });
+        function updateSolventUI() {
+            const parts = ui.solventSelect.value.split('|');
+            const pklStr = parts[0];
+            const solventClass = parts[1];
+            const isCustom = solventClass === 'custom';
+            const isAprotic = solventClass === 'polar-aprotic';
+
+            if (!isCustom) {
+                ui.pksSlider.value = parseFloat(pklStr);
+                ui.pksSlider.readOnly = true;
+            } else {
+                ui.pksSlider.readOnly = false;
+            }
+            ui.pksValue.textContent = parseFloat(ui.pksSlider.value).toFixed(2);
+
+            if (isAprotic) {
+                ui.solventWarning.textContent = 'Hinweis: pKₐ-Werte aus wässrigen Tabellen gelten nicht für dieses Lösungsmittel. Lösungsmittelspezifische pKₐ-Werte verwenden.';
+                ui.solventWarning.style.display = 'block';
+            } else if (isCustom && parseFloat(ui.pksSlider.value) > 40) {
+                ui.solventWarning.textContent = 'Hinweis: Für unpolare aprotische Lösungsmittel (Toluol, CHCl₃ etc.) ist der Charge-Balance-Ansatz nicht anwendbar. Die Titrationen sind in der Praxis möglich, lassen sich aber mit diesem Modell nicht simulieren (Ionenpaarbildung, keine Autoprotolyse).';
+                ui.solventWarning.style.display = 'block';
+            } else {
+                ui.solventWarning.style.display = 'none';
+            }
+            runFullSimulation();
+        }
+
+        ui.solventSelect.addEventListener('change', updateSolventUI);
         ui.pksSlider.addEventListener('input', () => {
             ui.pksValue.textContent = parseFloat(ui.pksSlider.value).toFixed(2);
+            if (parseFloat(ui.pksSlider.value) > 40) {
+                ui.solventWarning.textContent = 'Hinweis: Für unpolare aprotische Lösungsmittel (Toluol, CHCl₃ etc.) ist der Charge-Balance-Ansatz nicht anwendbar.';
+                ui.solventWarning.style.display = 'block';
+            } else {
+                ui.solventWarning.style.display = 'none';
+            }
             runFullSimulation();
         });
         ui.xAxisMode.addEventListener('change', plotMainCurve);
@@ -1450,6 +1806,7 @@
         ui.indicatorSelect.addEventListener('change', plotMainCurve);
         ui.targetEqIdxSelect.addEventListener('change', plotMainCurve);
         ui.speciesPlotType.forEach(radio => radio.addEventListener('change', plotSpecies));
+        document.getElementsByName('species_x_axis').forEach(radio => radio.addEventListener('change', plotSpecies));
         ui.bufferDisplayMode?.addEventListener('change', plotBufferCapacity);
         ui.bufferYScale?.addEventListener('change', plotBufferCapacity);
         ui.runBackTitrationBtn.addEventListener('click', runBackTitration);

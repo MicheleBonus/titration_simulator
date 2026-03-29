@@ -554,6 +554,27 @@
             URL.revokeObjectURL(url);
         }
 
+        function attachCSVExport(plotDivId, getRowsFn) {
+            const plotEl = document.getElementById(plotDivId);
+            if (!plotEl) return;
+            // Remove previous export bar if present
+            const prev = plotEl.parentElement.querySelector('.export-bar');
+            if (prev) prev.remove();
+            const bar = document.createElement('div');
+            bar.className = 'export-bar';
+            bar.style.cssText = 'text-align:right; margin-top:0.4rem;';
+            const btn = document.createElement('button');
+            btn.className = 'secondary outline';
+            btn.style.cssText = 'width:auto; padding:0.25rem 0.7rem; font-size:0.82em;';
+            btn.textContent = '⬇ CSV';
+            btn.addEventListener('click', () => {
+                const { rows, filename } = getRowsFn();
+                downloadCSV(filename, rows);
+            });
+            bar.appendChild(btn);
+            plotEl.parentElement.appendChild(bar);
+        }
+
         // CO₂ formation function m̄ for H₂CO₃ (Eq. [35])
         function co2FormationFunction(ph) {
             const h = Math.pow(10, -ph);
@@ -1151,6 +1172,21 @@
             });
 
             Plotly.newPlot('plot-main', data, layout, {responsive: true});
+            attachCSVExport('plot-main', () => {
+                const { titration, params, volumes_ml, species_labels } = currentSimulationData;
+                const axLabel = getAxisLabel(params.pks);
+                const header = ['V_mL', axLabel, '[H3O+]_M', '[OH-]_M',
+                    ...species_labels.map(l => `[${l}]_M`)];
+                const rows = [header];
+                volumes_ml.forEach((v, i) => {
+                    const h = Math.pow(10, -titration.phs[i]);
+                    const oh = Math.pow(10, titration.phs[i] - params.pks);
+                    const specConcs = (currentSimulationData.species_concentrations || []).map(sc => sc[i] !== undefined ? sc[i].toExponential(4) : '');
+                    rows.push([v.toFixed(4), titration.phs[i].toFixed(4),
+                        h.toExponential(4), oh.toExponential(4), ...specConcs]);
+                });
+                return { rows, filename: 'titration_curve.csv' };
+            });
         }
 
         function computeEquivalenceMassTable(params, eq_vols_l, volumes_ml, phs) {
@@ -1500,6 +1536,22 @@
             }
 
             Plotly.newPlot('plot-buffer', [trace1, trace2], layout, { responsive: true });
+            attachCSVExport('plot-buffer', () => {
+                const { titration, params } = currentSimulationData;
+                const axLabel = getAxisLabel(params.pks);
+                const header = [axLabel, 'beta_static', 'beta_dynamic'];
+                const dv_dph2 = numGradient(titration.volumes, titration.phs);
+                const bs2 = dv_dph2.map(v => (v === 0 || !isFinite(v)) ? null : Math.abs(1 / v));
+                const c2 = titration.volumes.map(v => (params.c_titrant * v) / (params.v_analyte + v));
+                const dc2 = numGradient(c2, titration.phs);
+                const bd2 = dc2.map(v => Math.abs(v));
+                const rows = [header, ...titration.phs.map((ph, i) => [
+                    ph.toFixed(4),
+                    bs2[i] !== null ? bs2[i].toExponential(4) : '',
+                    bd2[i].toExponential(4)
+                ])];
+                return { rows, filename: 'buffer_capacity.csv' };
+            });
         }
 
         // Inflection points dedicated tab

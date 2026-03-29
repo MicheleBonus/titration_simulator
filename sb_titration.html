@@ -1023,7 +1023,6 @@
             });
             x_half.forEach((xv, i) => {
                 layout.shapes.push({ type: 'line', x0: xv, y0: 0, x1: xv, y1: params.pks, line: { color: 'gray', width: 1, dash: 'dot' } });
-                layout.annotations.push({ x: xv, y: 0, text: `½ ÄP ${i+1}`, showarrow: false, xanchor: 'left', yanchor: 'bottom' });
             });
 
             // Inflection point markers

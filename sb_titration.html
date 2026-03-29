@@ -1272,6 +1272,27 @@
                 ? 'Normierte Pufferkapazität (–)'
                 : 'β statisch |dΔ/dpH| (L·mol⁻¹·pH⁻¹)';
 
+            const pkaShapes = [];
+            const pkaAnnotations = [];
+            params.components.forEach((comp) => {
+                comp.pkas.forEach((pka, i) => {
+                    if (pka >= 0 && pka <= params.pks) {
+                        pkaShapes.push({
+                            type: 'line', x0: pka, y0: 0, x1: pka, y1: 1,
+                            xref: 'x', yref: 'paper',
+                            line: { color: 'rgba(255,165,0,0.6)', dash: 'dot', width: 1.5 }
+                        });
+                        pkaAnnotations.push({
+                            x: pka, y: 0.97, xref: 'x', yref: 'paper',
+                            text: `pKₐ${i+1}(${comp.symbol})`,
+                            showarrow: false, xanchor: 'center', yanchor: 'top',
+                            font: { size: 10, color: 'orange' },
+                            bgcolor: 'rgba(0,0,0,0.4)', borderpad: 2
+                        });
+                    }
+                });
+            });
+
             const layout = {
                 title: isNormalized
                     ? 'Pufferkapazität (normiert): β/βmax und βV/βVmax'
@@ -1279,7 +1300,9 @@
                 xaxis: { title: getAxisLabel(params.pks), range: [0, params.pks] },
                 yaxis: { title: yAxisTitle, type: yScale },
                 template: 'plotly_dark',
-                legend: { yanchor: 'top', y: 0.95, xanchor: 'right', x: 0.95 }
+                legend: { yanchor: 'top', y: 0.95, xanchor: 'right', x: 0.95 },
+                shapes: pkaShapes,
+                annotations: pkaAnnotations
             };
 
             if (!isNormalized) {

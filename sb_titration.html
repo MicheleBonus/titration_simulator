@@ -946,7 +946,7 @@
                 ? half_eq_vols_l.map(v => (params.c_titrant * v) / total_moles_titratable)
                 : half_eq_vols_l.map(v => v * 1000);
             const x_end = usePhiAxis
-                ? (x_eq.length > 0 ? Math.max(...x_eq) * 1.5 : plot_end_volume_ml)
+                ? (x_eq.length > 0 ? Math.max(...x_eq) * 1.5 : 2.0)
                 : plot_end_volume_ml;
             const x_title = usePhiAxis ? 'Titrationsgrad Φ = C·V / (C₀·V₀)' : 'Volumen zugegebener Maßlösung (mL)';
 

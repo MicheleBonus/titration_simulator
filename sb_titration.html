@@ -491,6 +491,16 @@
             return Math.abs(parseFloat(pks) - 14.00) < 0.005 ? 'pH' : '−lg\u2009a(SH₂⁺)';
         }
 
+        function interpolatePH(volumes_ml, phs, target_vol_ml) {
+            for (let i = 0; i < volumes_ml.length - 1; i++) {
+                if (volumes_ml[i] <= target_vol_ml && volumes_ml[i + 1] >= target_vol_ml) {
+                    const frac = (target_vol_ml - volumes_ml[i]) / (volumes_ml[i + 1] - volumes_ml[i]);
+                    return phs[i] + frac * (phs[i + 1] - phs[i]);
+                }
+            }
+            return null;
+        }
+
         // Download an array-of-arrays as CSV
         function downloadCSV(filename, rows) {
             const csv = rows.map(r => r.map(v => (v === null || v === undefined) ? '' : v).join(',')).join('\n');
@@ -826,6 +836,7 @@
             let total_moles_titratable = 0;
             const eq_vols_l = [];
             const half_eq_vols_l = [];
+            const half_eq_pkas = [];
             const all_species_labels = [];
             const all_species_concentrations = [];
 
@@ -844,6 +855,7 @@
                 let cumHalf = cumulative_vol - n_k * step_vol;
                 for (let i = 0; i < n_k; i++) {
                     half_eq_vols_l.push(cumHalf + (i + 0.5) * step_vol);
+                    half_eq_pkas.push(comp.pkas[i]);
                 }
 
                 // Species labels for this component
@@ -890,7 +902,7 @@
 
             currentSimulationData = {
                 titration, params, volumes_ml, n_protons, plot_end_volume_ml,
-                eq_vols_l, half_eq_vols_l, species_labels, species_concentrations,
+                eq_vols_l, half_eq_vols_l, half_eq_pkas, species_labels, species_concentrations,
                 all_species_labels, all_species_concentrations, phi_values,
                 total_moles_titratable, inflection_points, phiIsValid
             };
@@ -929,7 +941,7 @@
         }
 
         function plotMainCurve() {
-            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, half_eq_vols_l,
+            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, half_eq_vols_l, half_eq_pkas,
                     species_labels, species_concentrations, phi_values, inflection_points,
                     total_moles_titratable, phiIsValid } = currentSimulationData;
 
@@ -1052,7 +1064,7 @@
                 });
             }
 
-            computeEquivalenceMassTable(params, eq_vols_l);
+            computeEquivalenceMassTable(params, eq_vols_l, volumes_ml, titration.phs);
 
             const isAcid = params.analyte_is_acid;
             const yLevels = [0.85, 0.70, 0.55, 0.40, 0.25];
@@ -1071,28 +1083,38 @@
                 });
             });
 
-            if (x_half.length > 0) {
+            const halfAnnotYLevels = [0.20, 0.30, 0.12, 0.38, 0.08];
+            x_half.forEach((xv, i) => {
+                const pka = half_eq_pkas[i];
+                const pkaStr = pka !== undefined ? `= ${pka.toFixed(2)}` : '';
                 layout.annotations.push({
-                    x: x_half[0], y: params.pks*0.20,
-                    text: '½ ÄP 1 ≈ pKₐ₁ (Puffer)',
+                    x: xv,
+                    y: params.pks * (halfAnnotYLevels[i % halfAnnotYLevels.length]),
+                    text: `½ ÄP ${i+1} ≈ pKₐ${i+1} ${pkaStr}`,
                     showarrow: false,
-                    font: { size: 12, color: 'lightgray' },
+                    font: { size: 11, color: 'lightgray' },
                     xanchor: 'left', yanchor: 'bottom'
                 });
-            }
+            });
 
             Plotly.newPlot('plot-main', data, layout, {responsive: true});
         }
 
-        function computeEquivalenceMassTable(params, eq_vols_l) {
+        function computeEquivalenceMassTable(params, eq_vols_l, volumes_ml, phs) {
             const totalEq = eq_vols_l.length;
             const totalVol = eq_vols_l.length > 0 ? eq_vols_l[eq_vols_l.length-1]*1000 : 0;
             const nComp = params.components.length;
             const tableDiv = document.getElementById('equivalence-table');
-            tableDiv.innerHTML = `
+            let html = `
                 <div><h3>Äquivalenzpunkte</h3><p>${totalEq}</p></div>
                 <div><h3>Komponenten</h3><p>${nComp}</p></div>
                 <div><h3>Gesamt-ÄP-Volumen</h3><p>${totalVol.toFixed(2)} mL</p></div>`;
+            eq_vols_l.forEach((v, i) => {
+                const ph = interpolatePH(volumes_ml, phs, v * 1000);
+                const phStr = ph !== null ? ph.toFixed(2) : '—';
+                html += `<div><h3>ÄP ${i+1} — ${getAxisLabel(params.pks)}</h3><p>${phStr}</p></div>`;
+            });
+            tableDiv.innerHTML = html;
         }
         
         function plotDerivatives() {

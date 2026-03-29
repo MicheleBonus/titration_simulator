@@ -250,8 +250,25 @@
                 </article>
 
                 <article id="tab2" class="tab-content">
-                    <h3>Ableitungsdiagramme zur Endpunkterkennung</h3>
-                    <div id="plot-derivatives" style="width:100%; height:450px;"></div>
+                    <h3>Endpunktanalyse</h3>
+                    <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                        <button id="tab2-btn-derivatives" onclick="switchTab2('derivatives')"
+                                style="flex:1;">Ableitungsdiagramme</button>
+                        <button id="tab2-btn-gran" class="outline" onclick="switchTab2('gran')"
+                                style="flex:1;">Gran-Plot</button>
+                    </div>
+                    <div id="tab2-panel-derivatives">
+                        <div id="plot-derivatives" style="width:100%; height:450px;"></div>
+                    </div>
+                    <div id="tab2-panel-gran" style="display:none;">
+                        <p style="font-size:0.9em; color:var(--pico-muted-color);">
+                            Linearisierung der Titrationskurve (Gran 1952).
+                            G₁ = (V₀+V)·10<sup>−p[H]</sup> (vor ÄP) und
+                            G₂ = (V₀+V)·10<sup>p[H]−pK<sub>L</sub></sup> (nach ÄP)
+                            sind jeweils linear in V; die Nullstellen geben das Äquivalenzvolumen.
+                        </p>
+                        <div id="plot-gran" style="width:100%; height:430px;"></div>
+                    </div>
                 </article>
 
                 <article id="tab3" class="tab-content">
@@ -508,6 +525,21 @@
                 }
             }
             return null;
+        }
+
+        function linReg(xs, ys) {
+            const n = xs.length;
+            if (n < 2) return null;
+            const sx = xs.reduce((a, b) => a + b, 0);
+            const sy = ys.reduce((a, b) => a + b, 0);
+            const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0);
+            const sxx = xs.reduce((a, x) => a + x * x, 0);
+            const det = n * sxx - sx * sx;
+            if (Math.abs(det) < 1e-12) return null;
+            const m = (n * sxy - sx * sy) / det;
+            const b = (sy - m * sx) / n;
+            const zero = Math.abs(m) > 1e-12 ? -b / m : null;
+            return { m, b, zero };
         }
 
         // Download an array-of-arrays as CSV
@@ -941,9 +973,22 @@
             return points;
         }
         
+        let tab2Mode = 'derivatives';
+
+        function switchTab2(mode) {
+            tab2Mode = mode;
+            document.getElementById('tab2-panel-derivatives').style.display = mode === 'derivatives' ? 'block' : 'none';
+            document.getElementById('tab2-panel-gran').style.display = mode === 'gran' ? 'block' : 'none';
+            document.getElementById('tab2-btn-derivatives').classList.toggle('outline', mode !== 'derivatives');
+            document.getElementById('tab2-btn-gran').classList.toggle('outline', mode === 'derivatives');
+            if (mode === 'gran') plotGranFunction();
+            else plotDerivatives();
+        }
+
         function updateAllPlots() {
             plotMainCurve();
-            plotDerivatives();
+            if (tab2Mode === 'gran') plotGranFunction();
+            else plotDerivatives();
             plotSpecies();
             plotBufferCapacity();
             plotInflectionPoints();
@@ -1158,7 +1203,125 @@
 
             Plotly.newPlot('plot-derivatives', [trace1, trace2], layout, {responsive: true});
         }
-        
+
+        function plotGranFunction() {
+            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l } = currentSimulationData;
+            if (!titration || volumes_ml.length < 4 || eq_vols_l.length === 0) {
+                Plotly.purge('plot-gran');
+                document.getElementById('plot-gran').innerHTML = '<p>Nicht genügend Daten für Gran-Plot.</p>';
+                return;
+            }
+
+            const V0_ml = params.v_analyte * 1000;
+            const pKL = params.pks;
+            const isAcidAnalyte = params.analyte_is_acid;
+            const colors = ['royalblue', 'tomato', 'mediumseagreen', 'orange', 'violet'];
+            const data = [];
+            const shapes = [];
+            const annotations = [];
+
+            eq_vols_l.forEach((eq_v_l, eqIdx) => {
+                const Veq = eq_v_l * 1000;
+                const prevVeq = eqIdx > 0 ? eq_vols_l[eqIdx - 1] * 1000 : 0;
+                const nextVeq = eqIdx < eq_vols_l.length - 1 ? eq_vols_l[eqIdx + 1] * 1000 : plot_end_volume_ml;
+                const color = colors[eqIdx % colors.length];
+
+                // Window: use 30% of surrounding segment on each side
+                const windowBefore = Math.max((Veq - prevVeq) * 0.35, 1.0);
+                const windowAfter = Math.max((nextVeq - Veq) * 0.35, 1.0);
+
+                const beforeIdx = volumes_ml.reduce((acc, v, i) => {
+                    if (v >= Veq - windowBefore && v < Veq) acc.push(i);
+                    return acc;
+                }, []);
+                const afterIdx = volumes_ml.reduce((acc, v, i) => {
+                    if (v > Veq && v <= Veq + windowAfter) acc.push(i);
+                    return acc;
+                }, []);
+
+                // Gran functions:
+                // isAcidAnalyte (base titrant → acid): G1 = (V0+V)*10^(-pH), G2 = (V0+V)*10^(pH-pKL)
+                // !isAcidAnalyte (acid titrant → base): G1 = (V0+V)*10^(pH-pKL), G2 = (V0+V)*10^(-pH)
+                const granG = (idx, isBefore) => {
+                    const v = volumes_ml[idx];
+                    const ph = titration.phs[idx];
+                    const f = V0_ml + v;
+                    if (isAcidAnalyte) {
+                        return isBefore ? f * Math.pow(10, -ph) : f * Math.pow(10, ph - pKL);
+                    } else {
+                        return isBefore ? f * Math.pow(10, ph - pKL) : f * Math.pow(10, -ph);
+                    }
+                };
+
+                const g1x = beforeIdx.map(i => volumes_ml[i]);
+                const g1y = beforeIdx.map(i => granG(i, true));
+                const g2x = afterIdx.map(i => volumes_ml[i]);
+                const g2y = afterIdx.map(i => granG(i, false));
+
+                // Traces for data points
+                if (g1x.length > 0) {
+                    data.push({
+                        x: g1x, y: g1y, mode: 'markers', name: `G₁ (vor ÄP ${eqIdx+1})`,
+                        marker: { color, size: 5 }, legendgroup: `ep${eqIdx}`
+                    });
+                }
+                if (g2x.length > 0) {
+                    data.push({
+                        x: g2x, y: g2y, mode: 'markers', name: `G₂ (nach ÄP ${eqIdx+1})`,
+                        marker: { color, size: 5, symbol: 'diamond' }, legendgroup: `ep${eqIdx}`
+                    });
+                }
+
+                // Linear regression + extrapolation lines
+                const reg1 = linReg(g1x, g1y);
+                const reg2 = linReg(g2x, g2y);
+
+                if (reg1 && reg1.zero !== null && isFinite(reg1.zero)) {
+                    const xA = Math.max(0, g1x[0] - windowBefore * 0.5);
+                    const xB = reg1.zero;
+                    data.push({
+                        x: [xA, xB], y: [reg1.m*xA+reg1.b, 0],
+                        mode: 'lines', line: { color, dash: 'dot', width: 1.5 },
+                        name: `Extrap. G₁(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
+                    });
+                    annotations.push({
+                        x: reg1.zero, y: 0, text: `ÄP ${eqIdx+1}<br>${reg1.zero.toFixed(2)} mL`,
+                        showarrow: true, arrowhead: 2, ax: 0, ay: -30,
+                        font: { size: 10, color }, bgcolor: 'rgba(0,0,0,0.5)', borderpad: 2
+                    });
+                }
+                if (reg2 && reg2.zero !== null && isFinite(reg2.zero)) {
+                    const xA = reg2.zero;
+                    const xB = g2x[g2x.length-1] + windowAfter * 0.5;
+                    data.push({
+                        x: [xA, g2x[g2x.length-1]], y: [0, reg2.m*g2x[g2x.length-1]+reg2.b],
+                        mode: 'lines', line: { color, dash: 'dash', width: 1.5 },
+                        name: `Extrap. G₂(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
+                    });
+                }
+
+                // Vertical line at known EP
+                shapes.push({
+                    type: 'line', x0: Veq, y0: 0, x1: Veq, y1: 1,
+                    xref: 'x', yref: 'paper',
+                    line: { color: 'crimson', dash: 'dash', width: 1 }
+                });
+            });
+
+            const gLabel = isAcidAnalyte
+                ? 'G₁=(V₀+V)·10⁻ᵖᴴ / G₂=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ'
+                : 'G₁=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ / G₂=(V₀+V)·10⁻ᵖᴴ';
+
+            Plotly.newPlot('plot-gran', data, {
+                title: `Gran-Plot — ${gLabel}`,
+                xaxis: { title: 'Volumen zugegebener Maßlösung (mL)', range: [0, plot_end_volume_ml] },
+                yaxis: { title: 'Gran-Funktion G(V)' },
+                template: 'plotly_dark',
+                shapes, annotations,
+                legend: { yanchor: 'top', y: 0.95, xanchor: 'left', x: 0.05 }
+            }, { responsive: true });
+        }
+
         function plotSpecies() {
             const { volumes_ml, titration, species_labels, species_concentrations, plot_end_volume_ml, params,
                     all_species_labels, all_species_concentrations } = currentSimulationData;

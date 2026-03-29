@@ -622,27 +622,6 @@
         let currentSimulationData = {};
         let mixtureComponentCount = 0;
 
-        function formatSpeciesLabel(baseName, totalProtons, numProtonsOnSpecies, isAcid) {
-            let charge;
-            if (isAcid) {
-                charge = numProtonsOnSpecies - totalProtons;
-            } else {
-                charge = numProtonsOnSpecies;
-            }
-
-            let chargeStr = "";
-            if (charge === 1) chargeStr = "<sup>+</sup>";
-            else if (charge === -1) chargeStr = "<sup>-</sup>";
-            else if (charge > 1) chargeStr = `<sup>${charge}+</sup>`;
-            else if (charge < -1) chargeStr = `<sup>${-charge}-</sup>`;
-
-            let protonStr = "";
-            if (numProtonsOnSpecies === 1) protonStr = "H";
-            else if (numProtonsOnSpecies > 1) protonStr = `H<sub>${numProtonsOnSpecies}</sub>`;
-
-            return `${protonStr}${baseName}${chargeStr}`;
-        }
-
         // --- Mixture component management ---
         const DEFAULT_PKAS = {
             acid: { 1: [4.76], 2: [2.15, 7.20], 3: [2.15, 7.20, 12.35], 4: [1.8, 4.0, 8.0, 12.0], 5: [1.5, 3.5, 6.5, 9.5, 12.5] },

@@ -1210,7 +1210,9 @@
 
             // Static buffer capacity β = |dΔ/dpH| ≈ |1/(dV/dpH)| (Eq. [79])
             const dv_dph = numGradient(titration.volumes, titration.phs);
-            const beta_static = dv_dph.map(v => Math.abs(1 / v));
+            const beta_static = dv_dph.map(v =>
+                (v === 0 || !isFinite(v)) ? null : Math.abs(1 / v)
+            );
 
             // Dynamic buffer capacity βV = |dc/dpH| (Eq. [93-97])
             // c = C·V / (V₀+V) is the current concentration of titrant in the mixture

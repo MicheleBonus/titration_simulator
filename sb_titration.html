@@ -1379,7 +1379,7 @@
                 v_analyte: v_before_titration_l,
                 components: [{ symbol: 'R1', concentration: c_r1_total_initial, pkas: [r1_is_base ? 15.74 : -1.74], is_acid: !r1_is_base, n_protons: 1 }],
                 analyte_is_acid: !r1_is_base, c_titrant: c_r2,
-                pkas_titrant: [pka_r2], pks: 14.0, co2_concentration: 0,
+                pkas_titrant: [pka_r2], pks: parseFloat(ui.pksSlider.value), co2_concentration: 0,
             };
             const sim_total = new TitrationCalculator(params_total);
             const eq_vol_total_ml = (moles_r1_added / c_r2) * 1000.0;
@@ -1420,12 +1420,12 @@
             const layout = {
                 title: 'Rücktitration: Titration von R1 (Überschuss) mit R2 (Maßlösung)',
                 xaxis: { title: `Volumen ${r2_label} (mL)`, range: [0, plot_max_x] },
-                yaxis: { title: 'pH', range: [0, 14] },
+                yaxis: { title: getAxisLabel(parseFloat(ui.pksSlider.value)), range: [0, parseFloat(ui.pksSlider.value)] },
                 template: 'plotly_dark',
                 legend: { yanchor: "top", y: 0.95, xanchor: "left", x: 0.05 },
                 shapes: [
-                    { type: 'line', x0: eq_vol_leftover_ml, y0: 0, x1: eq_vol_leftover_ml, y1: 14, line: { color: 'crimson', dash: 'dash' } },
-                    { type: 'line', x0: eq_vol_total_ml, y0: 0, x1: eq_vol_total_ml, y1: 14, line: { color: 'gray', dash: 'dash' } }
+                    { type: 'line', x0: eq_vol_leftover_ml, y0: 0, x1: eq_vol_leftover_ml, y1: parseFloat(ui.pksSlider.value), line: { color: 'crimson', dash: 'dash' } },
+                    { type: 'line', x0: eq_vol_total_ml, y0: 0, x1: eq_vol_total_ml, y1: parseFloat(ui.pksSlider.value), line: { color: 'gray', dash: 'dash' } }
                 ],
                 annotations: [
                     { text: `Tatsächlicher ÄP<br>${eq_vol_leftover_ml.toFixed(2)} mL`, x: eq_vol_leftover_ml, y: 1, yanchor: 'bottom', showarrow: false },

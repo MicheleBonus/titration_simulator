@@ -1174,6 +1174,7 @@
             Plotly.newPlot('plot-main', data, layout, {responsive: true});
             attachCSVExport('plot-main', () => {
                 const { titration, params, volumes_ml, species_labels } = currentSimulationData;
+                if (!titration) return { rows: [], filename: 'titration_curve.csv' };
                 const axLabel = getAxisLabel(params.pks);
                 const header = ['V_mL', axLabel, '[H3O+]_M', '[OH-]_M',
                     ...species_labels.map(l => `[${l}]_M`)];
@@ -1538,17 +1539,18 @@
             Plotly.newPlot('plot-buffer', [trace1, trace2], layout, { responsive: true });
             attachCSVExport('plot-buffer', () => {
                 const { titration, params } = currentSimulationData;
+                if (!titration) return { rows: [], filename: 'buffer_capacity.csv' };
                 const axLabel = getAxisLabel(params.pks);
                 const header = [axLabel, 'beta_static', 'beta_dynamic'];
                 const dv_dph2 = numGradient(titration.volumes, titration.phs);
                 const bs2 = dv_dph2.map(v => (v === 0 || !isFinite(v)) ? null : Math.abs(1 / v));
                 const c2 = titration.volumes.map(v => (params.c_titrant * v) / (params.v_analyte + v));
                 const dc2 = numGradient(c2, titration.phs);
-                const bd2 = dc2.map(v => Math.abs(v));
+                const bd2 = dc2.map(v => isFinite(v) ? Math.abs(v) : null);
                 const rows = [header, ...titration.phs.map((ph, i) => [
                     ph.toFixed(4),
                     bs2[i] !== null ? bs2[i].toExponential(4) : '',
-                    bd2[i].toExponential(4)
+                    bd2[i] !== null ? bd2[i].toExponential(4) : ''
                 ])];
                 return { rows, filename: 'buffer_capacity.csv' };
             });

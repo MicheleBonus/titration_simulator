@@ -1167,6 +1167,8 @@
             const x_data_species = usePhAxis ? titration.phs : volumes_ml;
             const x_title_species = usePhAxis ? getAxisLabel(params.pks) : 'Volumen zugegebener Maßlösung (mL)';
             const x_range_species = usePhAxis ? [0, params.pks] : [0, plot_end_volume_ml];
+            const x_hover_prefix = usePhAxis ? getAxisLabel(params.pks) : 'Volumen';
+            const x_hover_suffix = usePhAxis ? '' : ' mL';
             if (volumes_ml.length === 0) {
                 document.getElementById('plot-species').innerHTML = '<p>Keine Daten zur Darstellung der Speziesverteilung verfügbar.</p>';
                 return;
@@ -1183,7 +1185,7 @@
                             x: x_data_species, y: titration.nbar_values[k],
                             mode: 'lines', name: `n̄(${comp.symbol})`,
                             line: { width: 2 },
-                            hovertemplate: `<b>n̄(${comp.symbol})</b><br>Volumen: %{x:.2f} mL<br>n̄: %{y:.3f}<extra></extra>`
+                            hovertemplate: `<b>n̄(${comp.symbol})</b><br>${x_hover_prefix}: %{x:.2f}${x_hover_suffix}<br>n̄: %{y:.3f}<extra></extra>`
                         });
                     }
                 });
@@ -1217,7 +1219,7 @@
                             x: x_data_species, y: y_source[i], mode: 'lines',
                             name: label, line: { color: colors[colorIdx % colors.length] },
                             fill: params.components.length === 1 ? 'tozeroy' : undefined,
-                            hovertemplate: `<b>${label}</b><br>Volumen: %{x:.2f} mL<br>%{y:.3e}<extra></extra>`
+                            hovertemplate: `<b>${label}</b><br>${x_hover_prefix}: %{x:.2f}${x_hover_suffix}<br>%{y:.3e}<extra></extra>`
                         });
                         colorIdx++;
                     });

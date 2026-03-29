@@ -155,8 +155,21 @@
                         <option value="base">Base</option>
                     </select>
                     
-                    <label for="pks">Lösungsmittel pK<sub>L</sub>: <span id="pks_value">14.00</span></label>
-                    <input type="range" id="pks" min="0" max="30" value="14.0" step="0.01" title="Die Autoprotolysekonstante des Lösungsmittels (z.B. ist pKL für Wasser pKw = 14.00).">
+                    <label for="solvent_select">Lösungsmittel</label>
+                    <select id="solvent_select">
+                        <option value="14.00|protic" selected>Wasser (pK<sub>L</sub> = 14.00)</option>
+                        <option value="16.90|protic">Methanol (pK<sub>L</sub> = 16.90)</option>
+                        <option value="19.10|protic">Ethanol (pK<sub>L</sub> = 19.10)</option>
+                        <option value="14.45|protic">Eisessig (pK<sub>L</sub> = 14.45)</option>
+                        <option value="29.40|polar-aprotic">DMF (pK<sub>L</sub> = 29.40)</option>
+                        <option value="33.30|polar-aprotic">Acetonitril (pK<sub>L</sub> = 33.30)</option>
+                        <option value="35.00|polar-aprotic">DMSO (pK<sub>L</sub> = 35.00)</option>
+                        <option value="custom|custom">Benutzerdefiniert</option>
+                    </select>
+                    <label for="pks">pK<sub>L</sub>: <span id="pks_value">14.00</span></label>
+                    <input type="number" id="pks" min="0" max="50" value="14.0" step="0.01"
+                           readonly title="Autoprotolysekonstante des Lösungsmittels. Bei 'Benutzerdefiniert' editierbar.">
+                    <small id="solvent-warning" style="color: var(--pico-del-color); display:none;"></small>
                     
                     <hr>
                     
@@ -599,6 +612,8 @@
             analyteMode: document.getElementById('analyte_mode'),
             pksSlider: document.getElementById('pks'),
             pksValue: document.getElementById('pks_value'),
+            solventSelect: document.getElementById('solvent_select'),
+            solventWarning: document.getElementById('solvent-warning'),
             vAnalyte: document.getElementById('v_analyte'),
             mixtureContainer: document.getElementById('mixture-components'),
             addAnalyteBtn: document.getElementById('add-analyte-btn'),
@@ -942,7 +957,7 @@
             const layout = {
                 title: usePhiAxis ? 'Titrationskurve (normiert)' : 'Titrationskurve',
                 xaxis: { title: x_title, range: [0, x_end] },
-                yaxis: { title: 'pH', range: [0, params.pks] },
+                yaxis: { title: getAxisLabel(params.pks), range: [0, params.pks] },
                 template: 'plotly_dark',
                 shapes: [],
                 annotations: [],
@@ -1025,7 +1040,7 @@
                 let hovertemplate = usePhiAxis
                     ? "<b>Φ: %{x:.3f}</b><br>"
                     : "<b>Volumen: %{x:.2f} mL</b><br>";
-                hovertemplate += "<b>pH: %{y:.2f}</b><br><br>[H₃O⁺]: %{customdata[0]:.2e} M<br>[OH⁻]: %{customdata[1]:.2e} M<br><extra></extra>";
+                hovertemplate += `<b>${getAxisLabel(params.pks)}: %{y:.2f}</b><br><br>[H₃O⁺]: %{customdata[0]:.2e} M<br>[OH⁻]: %{customdata[1]:.2e} M<br><extra></extra>`;
                 species_labels.forEach((label, i) => {
                     hovertemplate += `[${label}]: %{customdata[${i+2}]:.2e} M<br>`;
                 });
@@ -1104,8 +1119,8 @@
                 grid: { rows: 1, columns: 2, pattern: 'independent' },
                 xaxis: { title: 'Volumen (mL)', range: [0, plot_end_volume_ml] },
                 xaxis2: { title: 'Volumen (mL)', range: [0, plot_end_volume_ml] },
-                yaxis: { title: 'ΔpH/ΔV' },
-                yaxis2: { title: 'Δ²pH/ΔV²' },
+                yaxis: { title: `Δ(${getAxisLabel(params.pks)})/ΔV` },
+                yaxis2: { title: `Δ²(${getAxisLabel(params.pks)})/ΔV²` },
                 shapes: shapes,
                 template: 'plotly_dark',
                 showlegend: false
@@ -1240,7 +1255,7 @@
                 title: isNormalized
                     ? 'Pufferkapazität (normiert): β/βmax und βV/βVmax'
                     : 'Pufferkapazität: β (statisch) und βV (dynamisch, Gl. [93])',
-                xaxis: { title: 'pH', range: [0, params.pks] },
+                xaxis: { title: getAxisLabel(params.pks), range: [0, params.pks] },
                 yaxis: { title: yAxisTitle, type: yScale },
                 template: 'plotly_dark',
                 legend: { yanchor: 'top', y: 0.95, xanchor: 'right', x: 0.95 }
@@ -1314,7 +1329,7 @@
             const layout = {
                 title: 'Wendepunktanalyse (Gl. [50–54])',
                 xaxis: { title: 'Volumen (mL)', range: [0, plot_end_volume_ml] },
-                yaxis: { title: 'pH', side: 'left' },
+                yaxis: { title: getAxisLabel(params.pks), side: 'left' },
                 yaxis2: { title: 'd²pH/dV²', side: 'right', overlaying: 'y' },
                 template: 'plotly_dark',
                 shapes: shapes,
@@ -1450,8 +1465,42 @@
             addMixtureComponent({ n: 2, pkas: isAcid ? [2.15, 7.20] : [6.35, 10.33], symbol: isAcid ? 'A' : 'B' });
             runFullSimulation();
         });
+        function updateSolventUI() {
+            const parts = ui.solventSelect.value.split('|');
+            const pklStr = parts[0];
+            const solventClass = parts[1];
+            const isCustom = solventClass === 'custom';
+            const isAprotic = solventClass === 'polar-aprotic';
+
+            if (!isCustom) {
+                ui.pksSlider.value = parseFloat(pklStr);
+                ui.pksSlider.readOnly = true;
+            } else {
+                ui.pksSlider.readOnly = false;
+            }
+            ui.pksValue.textContent = parseFloat(ui.pksSlider.value).toFixed(2);
+
+            if (isAprotic) {
+                ui.solventWarning.textContent = 'Hinweis: pKₐ-Werte aus wässrigen Tabellen gelten nicht für dieses Lösungsmittel. Lösungsmittelspezifische pKₐ-Werte verwenden.';
+                ui.solventWarning.style.display = 'block';
+            } else if (isCustom && parseFloat(ui.pksSlider.value) > 40) {
+                ui.solventWarning.textContent = 'Hinweis: Für unpolare aprotische Lösungsmittel (Toluol, CHCl₃ etc.) ist der Charge-Balance-Ansatz nicht anwendbar. Die Titrationen sind in der Praxis möglich, lassen sich aber mit diesem Modell nicht simulieren (Ionenpaarbildung, keine Autoprotolyse).';
+                ui.solventWarning.style.display = 'block';
+            } else {
+                ui.solventWarning.style.display = 'none';
+            }
+            runFullSimulation();
+        }
+
+        ui.solventSelect.addEventListener('change', updateSolventUI);
         ui.pksSlider.addEventListener('input', () => {
             ui.pksValue.textContent = parseFloat(ui.pksSlider.value).toFixed(2);
+            if (parseFloat(ui.pksSlider.value) > 40) {
+                ui.solventWarning.textContent = 'Hinweis: Für unpolare aprotische Lösungsmittel (Toluol, CHCl₃ etc.) ist der Charge-Balance-Ansatz nicht anwendbar.';
+                ui.solventWarning.style.display = 'block';
+            } else {
+                ui.solventWarning.style.display = 'none';
+            }
             runFullSimulation();
         });
         ui.xAxisMode.addEventListener('change', plotMainCurve);

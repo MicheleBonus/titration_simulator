@@ -252,9 +252,9 @@
                 <article id="tab2" class="tab-content">
                     <h3>Endpunktanalyse</h3>
                     <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
-                        <button id="tab2-btn-derivatives" onclick="switchTab2('derivatives')"
+                        <button id="tab2-btn-derivatives" type="button"
                                 style="flex:1;">Ableitungsdiagramme</button>
-                        <button id="tab2-btn-gran" class="outline" onclick="switchTab2('gran')"
+                        <button id="tab2-btn-gran" type="button" class="outline"
                                 style="flex:1;">Gran-Plot</button>
                     </div>
                     <div id="tab2-panel-derivatives">
@@ -499,8 +499,12 @@
         const SUB = ['₀','₁','₂','₃','₄','₅','₆','₇','₈','₉'];
         const SUP_DIGIT = ['⁰','¹','²','³','⁴','⁵','⁶','⁷','⁸','⁹'];
 
-        function formatSpeciesLabelPlain(baseName, totalProtons, numProtonsOnSpecies, isAcid) {
-            const charge = isAcid ? (numProtonsOnSpecies - totalProtons) : numProtonsOnSpecies;
+        // chargeOfL = charge of the fully deprotonated form L; a species carrying
+        // numProtonsOnSpecies protons therefore has charge (chargeOfL + numProtonsOnSpecies).
+        // Neutral acid H_qA: chargeOfL = -q. Neutral amine base (NH₃): chargeOfL = 0.
+        // Anionic salt base (carbonate CO₃²⁻): chargeOfL = -2; phosphate PO₄³⁻: -3.
+        function formatSpeciesLabelPlain(baseName, chargeOfL, numProtonsOnSpecies) {
+            const charge = chargeOfL + numProtonsOnSpecies;
             let chargeStr = '';
             if (charge === 1) chargeStr = '⁺';
             else if (charge === -1) chargeStr = '⁻';
@@ -744,6 +748,9 @@
                 </div>
                 <label>Wertigkeit</label>
                 <input type="number" class="comp-n" value="${n}" min="1" max="5" step="1" data-id="${id}">
+                ${!isAcid ? `
+                <label style="font-size:0.85em;" title="Ladung z der vollständig deprotonierten Form L. 0 = neutrale Base/Amin (NH₃→NH₄⁺); −2 = Carbonat (CO₃²⁻); −3 = Phosphat (PO₄³⁻). Beeinflusst nur die Speziesbeschriftung, nicht die Kurve.">Ladung z (voll deprotoniert)</label>
+                <input type="number" class="comp-charge" value="${opts.charge != null ? opts.charge : 0}" step="1" data-id="${id}">` : ''}
                 <div class="comp-pkas" data-id="${id}"></div>
             `;
 
@@ -760,7 +767,7 @@
                 updateComponentPkas(div, newN, newDefaults);
                 runFullSimulation();
             });
-            div.querySelectorAll('.comp-symbol, .comp-conc').forEach(el => el.addEventListener('input', runFullSimulation));
+            div.querySelectorAll('.comp-symbol, .comp-conc, .comp-charge').forEach(el => el.addEventListener('input', runFullSimulation));
             if (canRemove) {
                 div.querySelector('.remove-btn').addEventListener('click', () => {
                     div.remove();
@@ -838,6 +845,8 @@
                 const symbol = div.querySelector('.comp-symbol').value || 'X';
                 const concentration = parseFloat(div.querySelector('.comp-conc').value) || 0.1;
                 const n = parseInt(div.querySelector('.comp-n').value) || 1;
+                const chargeEl = div.querySelector('.comp-charge');
+                const charge_L = chargeEl ? (parseInt(chargeEl.value) || 0) : 0;
                 const pkaInputs = div.querySelectorAll('.comp-pka-input');
                 const pkas = [];
                 pkaInputs.forEach((inp, pkaIdx) => {
@@ -856,7 +865,7 @@
                 if (pkas.some((v, i) => v !== unsortedPkas[i])) {
                     anyPkaReordered = true;
                 }
-                components.push({ symbol, concentration, n_protons: pkas.length, pkas, is_acid: isAcid });
+                components.push({ symbol, concentration, n_protons: pkas.length, pkas, is_acid: isAcid, charge_L });
             });
 
             if (validationErrors.length > 0 || components.some(comp => comp.pkas.length === 0)) {
@@ -921,8 +930,9 @@
                 }
 
                 // Species labels for this component
+                const chargeOfL = comp.is_acid ? -n_k : (comp.charge_L || 0);
                 const labels = Array.from({length: n_k + 1}, (_, i) =>
-                    formatSpeciesLabelPlain(comp.symbol, n_k, n_k - i, comp.is_acid));
+                    formatSpeciesLabelPlain(comp.symbol, chargeOfL, n_k - i));
                 all_species_labels.push(labels);
 
                 // Species concentrations
@@ -1068,24 +1078,30 @@
 
                 if (titration.phs.length > 1) {
                     const indicator_midpoint_ph = (info.range[0] + info.range[1]) / 2;
-                    let endpoint_vol = 0;
+                    let endpoint_vol = null;
                     for (let i=0; i<titration.phs.length-1; i++) {
                         if ((titration.phs[i] <= indicator_midpoint_ph && titration.phs[i+1] >= indicator_midpoint_ph) || (titration.phs[i] >= indicator_midpoint_ph && titration.phs[i+1] <= indicator_midpoint_ph)) {
                             endpoint_vol = volumes_ml[i] + (volumes_ml[i+1]-volumes_ml[i]) * (indicator_midpoint_ph - titration.phs[i]) / (titration.phs[i+1] - titration.phs[i]);
                             break;
                         }
                     }
-                    const target_eq_idx = parseInt(ui.targetEqIdxSelect.value || '1') - 1;
-                    const target_vol = eq_vols_l[target_eq_idx] * 1000;
-                    const error = endpoint_vol - target_vol;
-                    const rel_error = target_vol > 0 ? (error / target_vol) * 100 : 0;
-
                     indicatorMetricsDiv.style.display = 'grid';
-                    indicatorMetricsDiv.innerHTML = `
-                        <div><h3>Endpunktvolumen (pH ${indicator_midpoint_ph.toFixed(2)})</h3><p>${endpoint_vol.toFixed(3)} mL</p></div>
-                        <div><h3>Indikatorfehler vs. ÄP ${target_eq_idx+1}</h3><p>${error.toFixed(3)} mL</p></div>
-                        <div><h3>Relativer Fehler</h3><p>${rel_error.toFixed(2)} %</p></div>
-                    `;
+                    if (endpoint_vol === null) {
+                        // The indicator's transition pH lies outside the curve's pH range
+                        // (e.g. an acidic-range indicator on a weak-acid/strong-base titration).
+                        indicatorMetricsDiv.innerHTML = `
+                            <div style="grid-column:1/-1;"><h3>Umschlagspunkt (pH ${indicator_midpoint_ph.toFixed(2)})</h3><p style="font-size:1rem;">im erreichbaren ${getAxisLabel(params.pks)}-Bereich nicht erreicht — bitte einen passenderen Indikator wählen.</p></div>`;
+                    } else {
+                        const target_eq_idx = parseInt(ui.targetEqIdxSelect.value || '1') - 1;
+                        const target_vol = eq_vols_l[target_eq_idx] * 1000;
+                        const error = endpoint_vol - target_vol;
+                        const rel_error = target_vol > 0 ? (error / target_vol) * 100 : 0;
+                        indicatorMetricsDiv.innerHTML = `
+                            <div><h3>Endpunktvolumen (pH ${indicator_midpoint_ph.toFixed(2)})</h3><p>${endpoint_vol.toFixed(3)} mL</p></div>
+                            <div><h3>Indikatorfehler vs. ÄP ${target_eq_idx+1}</h3><p>${error.toFixed(3)} mL</p></div>
+                            <div><h3>Relativer Fehler</h3><p>${rel_error.toFixed(2)} %</p></div>
+                        `;
+                    }
                 }
             } else {
                  indicatorMetricsDiv.style.display = 'none';
@@ -1814,6 +1830,11 @@
         ui.bufferDisplayMode?.addEventListener('change', plotBufferCapacity);
         ui.bufferYScale?.addEventListener('change', plotBufferCapacity);
         ui.runBackTitrationBtn.addEventListener('click', runBackTitration);
+
+        // Tab 2 sub-view switch (Ableitungen / Gran) — bound here so the closure-scoped
+        // switchTab2 is reachable (inline onclick would run in global scope → ReferenceError).
+        document.getElementById('tab2-btn-derivatives').addEventListener('click', () => switchTab2('derivatives'));
+        document.getElementById('tab2-btn-gran').addEventListener('click', () => switchTab2('gran'));
 
         // Initialer Aufbau
         const indicatorOptions = Object.keys(INDICATOR_DATA)

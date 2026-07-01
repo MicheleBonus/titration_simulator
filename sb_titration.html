@@ -6,144 +6,163 @@
     <title>Universeller Titrations-Simulator</title>
     <!-- Modernes, klassenloses CSS-Framework für gutes Aussehen ohne Aufwand -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <!-- Typografie: Space Grotesk (Display), IBM Plex Sans (Fließtext), IBM Plex Mono (Messwerte) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
     <!-- Plotly.js für die Grafiken — feste Version (nicht "latest") mit Subresource-Integrity -->
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"
             integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7"
             crossorigin="anonymous"></script>
     <style>
+        /* ===================== DESIGN TOKENS ("Analytisches Instrument") ===================== */
         :root {
             --pico-font-size: 100%;
-            --pico-form-element-spacing-vertical: 0.75rem;
-            --pico-card-padding: 1.5rem;
+            --pico-form-element-spacing-vertical: 0.7rem;
+            --pico-card-padding: 1.4rem;
+            --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+            --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+            --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+            /* pH-Spektrum als Signatur (rot → violett) */
+            --ph-spectrum: linear-gradient(90deg,
+                #e23b3b 0%, #ef7d2e 18%, #f3c53b 34%, #57c04a 52%,
+                #2f8fd4 70%, #4b53c9 85%, #7b3fb0 100%);
         }
+        /* Instrument-Panel: kühle Labor-Slate-Palette (überschreibt Pico-Dark-Defaults) */
+        [data-theme="dark"] {
+            --pico-background-color: #0e1319;
+            --pico-color: #e7edf3;
+            --pico-h1-color: #f4f7fa;
+            --pico-h2-color: #eef2f6;
+            --pico-h3-color: #e7edf3;
+            --pico-muted-color: #93a1b2;
+            --pico-muted-border-color: #2a3542;
+            --pico-card-background-color: #161d27;
+            --pico-card-border-color: #26303c;
+            --pico-card-sectioning-background-color: #131a23;
+            --pico-border-color: #2a3542;
+            --pico-form-element-background-color: #1d2531;
+            --pico-form-element-border-color: #33404f;
+            /* Phenolphthalein-Rosa als Primärfarbe (der klassische Umschlag) */
+            --pico-primary: #f06aa0;
+            --pico-primary-background: #d43f77;
+            --pico-primary-hover: #f588b3;
+            --pico-primary-hover-background: #e0487f;
+            --pico-primary-focus: rgba(224, 72, 127, 0.35);
+            --pico-primary-inverse: #ffffff;
+            --pico-primary-underline: rgba(240, 106, 160, 0.5);
+            --pico-primary-border: var(--pico-primary-background);
+            --amber: #f5a524;
+            --info: #56b6e8;
+        }
+        html { scroll-behavior: smooth; }
         body {
-            padding: 1rem;
+            padding: 1.25rem 1rem 3rem;
+            font-family: var(--font-body);
+            background-image: radial-gradient(1100px 560px at 50% -12%, #182430 0%, transparent 62%);
+            background-attachment: fixed;
         }
-        main.container {
-            max-width: 1400px;
+        main.container { max-width: 1400px; }
+        h1, h2, h3, h4, h5, summary { font-family: var(--font-display); letter-spacing: -0.01em; }
+
+        /* ===================== HEADER + SIGNATUR ===================== */
+        header { text-align: center; margin-bottom: 1.6rem; }
+        header h1 { font-size: clamp(1.5rem, 2.4vw, 2.1rem); font-weight: 600; margin-bottom: 0.3rem; }
+        header p { color: var(--pico-muted-color); margin-bottom: 0.9rem; }
+        .ph-spectrum-rule {
+            height: 3px; width: min(560px, 92%); margin: 0 auto; border-radius: 3px;
+            background: var(--ph-spectrum); box-shadow: 0 0 18px rgba(224,72,127,0.22);
         }
-        .grid {
-            grid-template-columns: 1fr 2.5fr;
-            gap: var(--pico-spacing);
+
+        /* ===================== LAYOUT (mobile-first) ===================== */
+        .grid { grid-template-columns: 1fr; gap: var(--pico-spacing); }
+        .grid-3-col { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        @media (min-width: 992px) {
+            .grid { grid-template-columns: minmax(280px, 1fr) 2.5fr; }
+            .grid-3-col { grid-template-columns: repeat(3, 1fr); }
         }
-        h1, h2 {
-            text-align: center;
-        }
-        .tab-buttons {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
+        article { border: 1px solid var(--pico-card-border-color); box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
+
+        /* ===================== TABS (Signatur: pH-Spektrum-Unterstrich) ===================== */
+        .tab-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; margin-bottom: 1.25rem; }
+        @media (min-width: 680px)  { .tab-buttons { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1100px) { .tab-buttons { grid-template-columns: repeat(6, 1fr); } }
         .tab-buttons button {
-            background-color: var(--pico-muted-background-color);
+            background: var(--pico-card-background-color); color: var(--pico-muted-color);
+            border: 1px solid var(--pico-card-border-color); border-radius: var(--pico-border-radius);
+            font-family: var(--font-body); font-size: 0.85rem; font-weight: 500;
+            padding: 0.6rem 0.5rem; position: relative; overflow: hidden; transition: color .15s, border-color .15s;
         }
-        .tab-buttons button.active {
-            background-color: var(--pico-primary);
+        .tab-buttons button:hover { color: var(--pico-color); border-color: var(--pico-primary-background); }
+        .tab-buttons button.active { color: var(--pico-color); font-weight: 600; border-color: var(--pico-primary-background); }
+        .tab-buttons button.active::after {
+            content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--ph-spectrum);
         }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            text-align: center;
-        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ===================== MESSWERT-KARTEN ===================== */
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; text-align: center; }
         .metrics-grid div {
-            padding: 1rem;
-            background: var(--pico-card-background-color);
-            border-radius: var(--pico-border-radius);
-            border: 1px solid var(--pico-card-border-color);
+            padding: 0.9rem 1rem; background: var(--pico-card-sectioning-background-color);
+            border-radius: var(--pico-border-radius); border: 1px solid var(--pico-card-border-color);
         }
         .metrics-grid h3 {
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-            font-size: 1rem;
-            color: var(--pico-muted-color);
+            margin: 0 0 0.4rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;
+            text-transform: uppercase; color: var(--pico-muted-color); font-family: var(--font-body);
         }
         .metrics-grid p {
-            margin-bottom: 0;
-            font-size: 1.5rem;
-            font-weight: bold;
+            margin: 0; font-size: 1.4rem; font-weight: 600; color: var(--pico-color);
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
         }
-        .grid-3-col {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-        }
-        /* Style für das Expander-Element */
+
+        /* ===================== SIDEBAR / KOMPONENTEN ===================== */
+        .grid-3-col { }
         details {
-            margin-bottom: 1rem;
-            background: var(--pico-card-background-color);
-            border-radius: var(--pico-border-radius);
-            padding: 1rem;
+            margin-bottom: 1rem; background: var(--pico-card-sectioning-background-color);
+            border: 1px solid var(--pico-card-border-color); border-radius: var(--pico-border-radius); padding: 1rem;
         }
-        summary {
-            font-weight: bold;
-            cursor: pointer;
-        }
-        sup, sub {
-            line-height: 0;
-        }
+        summary { font-weight: 600; cursor: pointer; }
+        sup, sub { line-height: 0; }
         .mixture-component {
-            border: 1px solid var(--pico-muted-border-color);
-            border-radius: var(--pico-border-radius);
-            padding: 0.75rem;
-            margin-bottom: 0.5rem;
-            position: relative;
+            border: 1px solid var(--pico-muted-border-color); border-left: 3px solid var(--pico-primary-background);
+            border-radius: var(--pico-border-radius); padding: 0.75rem; margin-bottom: 0.6rem; position: relative;
+            background: var(--pico-card-sectioning-background-color);
         }
         .mixture-component .remove-btn {
-            position: absolute;
-            top: 0.25rem;
-            right: 0.25rem;
-            background: crimson;
-            border: none;
-            color: white;
-            width: 1.5rem;
-            height: 1.5rem;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 0.8rem;
-            padding: 0;
-            line-height: 1.5rem;
-            text-align: center;
+            position: absolute; top: 0.4rem; right: 0.4rem; background: transparent;
+            border: 1px solid var(--pico-muted-border-color); color: var(--pico-muted-color);
+            width: 1.6rem; height: 1.6rem; border-radius: 50%; cursor: pointer; font-size: 0.9rem;
+            padding: 0; line-height: 1; display: grid; place-items: center; transition: background .15s, color .15s, border-color .15s;
         }
-        #add-analyte-btn {
-            width: 100%;
-            margin-top: 0.5rem;
-            margin-bottom: 0.5rem;
+        .mixture-component .remove-btn:hover, .mixture-component .remove-btn:focus-visible {
+            background: var(--pico-del-color); color: #fff; border-color: var(--pico-del-color);
         }
-        .inflection-marker {
-            font-size: 0.9em;
-        }
+        #add-analyte-btn { width: 100%; margin: 0.5rem 0; }
+        input[type="number"], input[type="text"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+        input[readonly] { opacity: 0.65; cursor: not-allowed; background: var(--pico-background-color); }
+
+        /* ===================== HINWEISE (info / warn / error) ===================== */
         #simulation-notice {
-            margin-top: 0.75rem;
-            padding: 0.6rem 0.8rem;
-            border: 1px solid var(--pico-del-color);
-            border-radius: var(--pico-border-radius);
-            color: var(--pico-del-color);
-            background: color-mix(in srgb, var(--pico-del-color) 14%, transparent);
-            display: none;
-            font-size: 0.92rem;
+            margin-top: 0.75rem; padding: 0.6rem 0.85rem; border-radius: var(--pico-border-radius);
+            display: none; font-size: 0.92rem; border: 1px solid; font-family: var(--font-body);
         }
-        .comp-validation-error {
-            color: var(--pico-del-color);
-            font-size: 0.78rem;
-            margin-top: -0.35rem;
-            margin-bottom: 0.35rem;
-            display: none;
-        }
+        #simulation-notice.info  { color: var(--info);  border-color: var(--info);  background: color-mix(in srgb, var(--info) 12%, transparent); }
+        #simulation-notice.warn  { color: var(--amber); border-color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+        #simulation-notice.error { color: var(--pico-del-color); border-color: var(--pico-del-color); background: color-mix(in srgb, var(--pico-del-color) 12%, transparent); }
+        .comp-validation-error { color: var(--pico-del-color); font-size: 0.78rem; margin: -0.35rem 0 0.35rem; display: none; }
+        .inflection-marker { font-size: 0.9em; }
+        .export-bar button { font-family: var(--font-body); }
+
+        @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition: none !important; animation: none !important; } }
     </style>
 </head>
 <body>
     <main class="container">
         <header>
             <h1>Universeller Simulator für polyprotische Titrationen</h1>
-            <p style="text-align: center;">Eine interaktive Web-Anwendung zur exakten Simulation von Säure-Base-Titrationen.</p>
+            <p>Interaktive Simulation von Säure-Base-Titrationen über die exakte Ladungsbilanz.</p>
+            <div class="ph-spectrum-rule" role="presentation"></div>
         </header>
 
         <div class="grid">
@@ -193,8 +212,9 @@
                         <label for="c_titrant">Konz. (mol/L)</label>
                         <input type="number" id="c_titrant" value="0.100" step="0.01" min="1e-6">
 
-                        <label for="pkas_titrant" title="Für starke Basen (NaOH) pKs von H₂O (~15.74) nutzen. Für starke Säuren (HCl) pKs von H₃O⁺ (~-1.74) nutzen.">pKs korresp. Säure</label>
+                        <label for="pkas_titrant">pKs korresp. Säure des Titranten</label>
                         <input type="number" id="pkas_titrant" value="15.74" step="0.01">
+                        <small style="color:var(--pico-muted-color); display:block; margin-top:-0.4rem;">Starke Base (NaOH): 15.74 · Starke Säure (HCl): −1.74</small>
 
                         <label for="co2_concentration" title="CO₂-Kontamination in NaOH-Maßlösung (Asuero & Michałowski, Gl. [34])">CO₂-Konzentration (mol/L)</label>
                         <input type="number" id="co2_concentration" value="0" step="0.0001" min="0" title="0 = keine Verunreinigung. Typisch: 0.001–0.005 mol/L für handelsübliche NaOH.">
@@ -336,7 +356,7 @@
                             <input type="number" id="bt_pka_r2" value="-1.74" step="0.01">
                         </section>
                     </div>
-                    <button id="run_back_titration" style="width:100%; margin-top:1rem;">▶️ Rücktitrations-Simulation starten</button>
+                    <button id="run_back_titration" style="width:100%; margin-top:1rem;">Rücktitration simulieren</button>
                     <div id="back-titration-results" style="margin-top:1rem;"></div>
                     <div id="plot-back-titration" style="width:100%; height:500px; margin-top:1rem;"></div>
                 </article>
@@ -594,6 +614,19 @@
             plotEl.parentElement.appendChild(bar);
         }
 
+        // Central plot renderer: applies the instrument theme (transparent background so the
+        // chart sits on the card, not on an opaque grey block) and uses Plotly.react — a diff
+        // update rather than a full teardown, so live parameter changes no longer flash.
+        const PLOT_FONT = '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
+        const PLOT_TEXT = '#c5d0dc';
+        function drawPlot(divId, data, layout, config) {
+            const themed = Object.assign({}, layout);
+            themed.paper_bgcolor = 'rgba(0,0,0,0)';
+            themed.plot_bgcolor = 'rgba(0,0,0,0)';
+            themed.font = Object.assign({ family: PLOT_FONT, color: PLOT_TEXT, size: 12 }, layout.font || {});
+            return Plotly.react(divId, data, themed, config || { responsive: true });
+        }
+
         // CO₂ formation function m̄ for H₂CO₃ (Eq. [35])
         function co2FormationFunction(ph) {
             const h = Math.pow(10, -ph);
@@ -783,7 +816,7 @@
                 updateComponentPkas(div, newN, newDefaults);
                 runFullSimulation();
             });
-            div.querySelectorAll('.comp-symbol, .comp-conc, .comp-charge').forEach(el => el.addEventListener('input', runFullSimulation));
+            div.querySelectorAll('.comp-symbol, .comp-conc, .comp-charge').forEach(el => el.addEventListener('input', runSimDebounced));
             if (canRemove) {
                 div.querySelector('.remove-btn').addEventListener('click', () => {
                     div.remove();
@@ -804,7 +837,7 @@
                 input.className = 'comp-pka-input';
                 input.step = 0.01;
                 input.value = defaults[i] !== undefined ? defaults[i] : 7.0;
-                input.addEventListener('input', runFullSimulation);
+                input.addEventListener('input', runSimDebounced);
                 container.appendChild(label);
                 container.appendChild(input);
                 const error = document.createElement('small');
@@ -816,10 +849,15 @@
         function clearSimulationNotice() {
             ui.simulationNotice.style.display = 'none';
             ui.simulationNotice.textContent = '';
+            ui.simulationNotice.classList.remove('info', 'warn', 'error');
         }
 
-        function showSimulationNotice(message) {
+        // level: 'info' (neutral hint), 'warn' (recoverable), 'error' (simulation stopped)
+        function showSimulationNotice(message, level = 'error') {
             ui.simulationNotice.textContent = message;
+            ui.simulationNotice.classList.remove('info', 'warn', 'error');
+            ui.simulationNotice.classList.add(level);
+            ui.simulationNotice.setAttribute('aria-live', level === 'error' ? 'assertive' : 'polite');
             ui.simulationNotice.style.display = 'block';
         }
 
@@ -908,7 +946,7 @@
             }
 
             if (anyPkaReordered) {
-                showSimulationNotice('Hinweis: pKₐ-Werte wurden in aufsteigender Reihenfolge sortiert.');
+                showSimulationNotice('Hinweis: pKₐ-Werte wurden in aufsteigender Reihenfolge sortiert.', 'info');
             }
 
             return {
@@ -1001,7 +1039,7 @@
 
             if (!phiIsValid) {
                 if (ui.xAxisMode.value === 'phi') ui.xAxisMode.value = 'volume';
-                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar');
+                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar', 'warn');
             }
 
             // For backward compatibility with single-component code
@@ -1073,7 +1111,7 @@
             const usePhiAxis = wantsPhiAxis && phiIsValid;
 
             if (wantsPhiAxis && !phiIsValid) {
-                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar');
+                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar', 'warn');
             }
 
             // x values: either volumes in mL or Φ
@@ -1226,7 +1264,7 @@
                 });
             });
 
-            Plotly.newPlot('plot-main', data, layout, {responsive: true});
+            drawPlot('plot-main', data, layout, {responsive: true});
             attachCSVExport('plot-main', () => {
                 const { titration, params, volumes_ml, species_labels } = currentSimulationData;
                 if (!titration) return { rows: [], filename: 'titration_curve.csv' };
@@ -1293,7 +1331,7 @@
                 showlegend: false
             };
 
-            Plotly.newPlot('plot-derivatives', [trace1, trace2], layout, {responsive: true});
+            drawPlot('plot-derivatives', [trace1, trace2], layout, {responsive: true});
         }
 
         function plotGranFunction() {
@@ -1418,7 +1456,7 @@
                 ? 'G₁=(V−Vₚ)·10⁻ᵖᴴ (Puffer) · G₂=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ (Überschuss)'
                 : 'G₁=(V−Vₚ)·10ᵖᴴ⁻ᵖᴷᴸ (Puffer) · G₂=(V₀+V)·10⁻ᵖᴴ (Überschuss)';
 
-            Plotly.newPlot('plot-gran', data, {
+            drawPlot('plot-gran', data, {
                 title: `Gran-Plot — ${gLabel}`,
                 xaxis: { title: 'Volumen zugegebener Maßlösung (mL)', range: [0, plot_end_volume_ml] },
                 yaxis: { title: 'Gran-Funktion G(V)' },
@@ -1466,7 +1504,7 @@
                     template: 'plotly_dark',
                     hovermode: 'x unified'
                 };
-                Plotly.newPlot('plot-species', data, layout, {responsive: true});
+                drawPlot('plot-species', data, layout, {responsive: true});
                 return;
             }
 
@@ -1504,7 +1542,7 @@
                 hovermode: 'x unified'
             };
 
-            Plotly.newPlot('plot-species', data, layout, {responsive: true});
+            drawPlot('plot-species', data, layout, {responsive: true});
         }
 
         function plotBufferCapacity() {
@@ -1547,7 +1585,7 @@
                 x: titration.phs,
                 y: betaStaticY,
                 mode: 'lines',
-                line: { color: 'lime', width: 2 },
+                line: { color: '#4ade80', width: 2 },
                 name: isNormalized ? 'β/βmax (statisch)' : 'β (statisch)',
                 yaxis: 'y'
             };
@@ -1555,7 +1593,7 @@
                 x: titration.phs,
                 y: betaDynamicY,
                 mode: 'lines',
-                line: { color: 'cyan', width: 2, dash: 'dash' },
+                line: { color: '#38d0ee', width: 2, dash: 'dash' },
                 name: isNormalized ? 'βV/βVmax (dynamisch)' : 'βV (dynamisch)',
                 yaxis: isNormalized ? 'y' : 'y2'
             };
@@ -1607,7 +1645,7 @@
                 };
             }
 
-            Plotly.newPlot('plot-buffer', [trace1, trace2], layout, { responsive: true });
+            drawPlot('plot-buffer', [trace1, trace2], layout, { responsive: true });
             attachCSVExport('plot-buffer', () => {
                 const { titration, params } = currentSimulationData;
                 if (!titration) return { rows: [], filename: 'buffer_capacity.csv' };
@@ -1689,7 +1727,7 @@
                 shapes: shapes,
                 legend: { yanchor: "top", y: 0.95, xanchor: "left", x: 0.05 }
             };
-            Plotly.newPlot('plot-inflection', data, layout, {responsive: true});
+            drawPlot('plot-inflection', data, layout, {responsive: true});
         }
         
         function runBackTitration() {
@@ -1771,7 +1809,7 @@
                     <div><h3>Ber. Analytmasse</h3><p>${(calc_mass_g * 1000).toFixed(2)} mg</p></div>
                     <div><h3>Probenreinheit</h3><p>${purity.toFixed(2)} %</p></div>
                 </div>
-                <div class="pico-card" role="alert" style="margin-top: 1rem;">💡 <b>Durchgezogene Linie:</b> Tatsächliche Titration des übrigen R1. <b>Gestrichelte Linie:</b> Referenztitration der gesamten Menge R1. Der horizontale Abstand der Äquivalenzpunkte entspricht dem Verbrauch durch den Analyten.</div>`;
+                <article role="note" style="margin-top: 1rem;"><span aria-hidden="true">💡</span> <b>Durchgezogene Linie:</b> Tatsächliche Titration des übrigen R1. <b>Gestrichelte Linie:</b> Referenztitration der gesamten Menge R1. Der horizontale Abstand der Äquivalenzpunkte entspricht dem Verbrauch durch den Analyten.</article>`;
 
             // Plot
             const trace_leftover = {
@@ -1802,10 +1840,18 @@
                 ]
             };
             
-            Plotly.newPlot(plotDiv, [trace_leftover, trace_total], layout, {responsive: true});
+            drawPlot(plotDiv, [trace_leftover, trace_total], layout, {responsive: true});
         }
 
         // --- Event-Listener und Initialisierung ---
+
+        // Debounce free-text typing so a full recompute+redraw doesn't fire on every keystroke
+        // (structural changes and <select>s stay immediate for snappy feedback).
+        function debounce(fn, ms) {
+            let timer;
+            return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+        }
+        const runSimDebounced = debounce(runFullSimulation, 160);
 
         // Tab-Umschaltung
         ui.tabButtons.forEach(button => {
@@ -1821,7 +1867,7 @@
 
         // Automatische Aktualisierung bei Parameteränderung
         [ui.vAnalyte, ui.cTitrant, ui.pkasTitrant, ui.co2Concentration].forEach(el => {
-            el.addEventListener('input', runFullSimulation);
+            el.addEventListener('input', runSimDebounced);
         });
         ui.analyteMode.addEventListener('change', (e) => {
             const isAcid = e.target.value === 'acid';
@@ -1870,7 +1916,7 @@
             } else {
                 ui.solventWarning.style.display = 'none';
             }
-            runFullSimulation();
+            runSimDebounced();
         });
         ui.xAxisMode.addEventListener('change', plotMainCurve);
 

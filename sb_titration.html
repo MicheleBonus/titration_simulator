@@ -125,6 +125,7 @@
         summary { font-weight: 600; cursor: pointer; }
         sup, sub { line-height: 0; }
         .mixture-component {
+            display: block; /* override Pico's [role=group] { display:inline-flex } */
             border: 1px solid var(--pico-muted-border-color); border-left: 3px solid var(--pico-primary-background);
             border-radius: var(--pico-border-radius); padding: 0.75rem; margin-bottom: 0.6rem; position: relative;
             background: var(--pico-card-sectioning-background-color);
@@ -168,7 +169,7 @@
         <div class="grid">
             <aside>
                 <article>
-                    <h3 style="margin-top:0;">Systemeinstellungen</h3>
+                    <h2 style="margin-top:0;">Systemeinstellungen</h2>
                     
                     <label for="analyte_mode">Der Analyt ist eine...</label>
                     <select id="analyte_mode">
@@ -190,7 +191,7 @@
                     <label for="pks">pK<sub>L</sub>: <span id="pks_value">14.00</span></label>
                     <input type="number" id="pks" min="0" max="50" value="14.0" step="0.01"
                            readonly title="Autoprotolysekonstante des Lösungsmittels. Bei 'Benutzerdefiniert' editierbar.">
-                    <small id="solvent-warning" style="color: var(--pico-del-color); display:none;"></small>
+                    <small id="solvent-warning" role="status" aria-live="polite" style="color: var(--pico-del-color); display:none;"></small>
                     
                     <hr>
                     
@@ -238,7 +239,7 @@
             </aside>
             <section>
                 <nav class="tab-buttons">
-                    <button data-tab="tab1" class="active">Titrationskurve & Indikator</button>
+                    <button type="button" data-tab="tab1" class="active" aria-current="true">Titrationskurve & Indikator</button>
                     <button data-tab="tab2">Ableitungsdiagramme</button>
                     <button data-tab="tab3">Speziesverteilung & n&#772;</button>
                     <button data-tab="tab4">Rücktitration</button>
@@ -247,7 +248,7 @@
                 </nav>
 
                 <article id="tab1" class="tab-content active">
-                    <h3>Titrationskurve und Simulation des chemischen Indikators</h3>
+                    <h2>Titrationskurve und Simulation des chemischen Indikators</h2>
                     <div class="grid" style="grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
                         <div>
                             <label for="indicator-select">Chemischen Indikator auswählen</label>
@@ -266,13 +267,13 @@
                         </div>
                     </div>
                     <div id="simulation-notice" role="alert"></div>
-                    <div id="indicator-metrics" class="metrics-grid" style="margin-top:1rem; display:none;"></div>
+                    <div id="indicator-metrics" class="metrics-grid" role="status" aria-live="polite" style="margin-top:1rem; display:none;"></div>
                     <div id="plot-main" style="width:100%; height:500px;"></div>
-					<div id="equivalence-table" class="metrics-grid" style="margin-top:1rem;"></div>
+					<div id="equivalence-table" class="metrics-grid" role="status" aria-live="polite" style="margin-top:1rem;"></div>
                 </article>
 
                 <article id="tab2" class="tab-content">
-                    <h3>Endpunktanalyse</h3>
+                    <h2>Endpunktanalyse</h2>
                     <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
                         <button id="tab2-btn-derivatives" type="button"
                                 style="flex:1;">Ableitungsdiagramme</button>
@@ -296,7 +297,7 @@
                 </article>
 
                 <article id="tab3" class="tab-content">
-                    <h3>Speziesverteilung und Bjerrum-Funktion (mittlere Protonenzahl n&#772;)</h3>
+                    <h2>Speziesverteilung und Bjerrum-Funktion (mittlere Protonenzahl n&#772;)</h2>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
                         <fieldset>
                             <legend>Y-Achse anzeigen als:</legend>
@@ -320,7 +321,7 @@
                 </article>
 
                 <article id="tab4" class="tab-content">
-                    <h3>Universeller Simulator für Rücktitrationen</h3>
+                    <h2>Universeller Simulator für Rücktitrationen</h2>
                     <p>Bei einer <strong>Rücktitration</strong> wird ein bekannter Überschuss eines Reagenzes (R1) zu einem Analyten gegeben. Anschließend wird der <em>nicht umgesetzte Überschuss</em> von R1 mit einer Maßlösung (R2) titriert.</p>
                     <p><small style="color:var(--pico-muted-color);">Hinweis: Stoffmenge, Masse und Reinheit werden rein stöchiometrisch berechnet und sind exakt. Die dargestellte <em>Kurvenform</em> setzt ein säure-base-inertes Reaktionsprodukt voraus (R1 als starke einprotonige Spezies). Freigesetzte puffernde Produkte – z.&nbsp;B. Carbonat/Hydrogencarbonat aus einer Carbonatbestimmung – sind nicht modelliert; solche Titrationen erfordern in der Praxis das Austreiben von CO₂ (Auskochen). Bei MgO/ZnO entsteht kein CO₂.</small></p>
                     <hr>
@@ -357,11 +358,11 @@
                         </section>
                     </div>
                     <button id="run_back_titration" style="width:100%; margin-top:1rem;">Rücktitration simulieren</button>
-                    <div id="back-titration-results" style="margin-top:1rem;"></div>
+                    <div id="back-titration-results" role="status" aria-live="polite" style="margin-top:1rem;"></div>
                     <div id="plot-back-titration" style="width:100%; height:500px; margin-top:1rem;"></div>
                 </article>
                 <article id="tab5" class="tab-content">
-                    <h3>Pufferkapazität: statisch (β) und dynamisch (β<sub>V</sub>)</h3>
+                    <h2>Pufferkapazität: statisch (β) und dynamisch (β<sub>V</sub>)</h2>
                     <p>Die <strong>statische</strong> Pufferkapazität β = dC<sub>b</sub>/dpH (Van Slyke) beschreibt die Widerstandsfähigkeit gegen pH-Änderung bei konstanter Gesamtkonzentration; sie hat ihr Maximum bei pH = pK<sub>a</sub> (Halbneutralisation) und ein Minimum am Äquivalenzpunkt. Die <strong>dynamische</strong> Pufferkapazität β<sub>V</sub> = dc/dpH (Michałowski, Gl. [93]) berücksichtigt den Verdünnungseffekt während der Titration; ihr Maximum liegt dadurch geringfügig <em>unterhalb</em> des pK<sub>a</sub>. β<sub>V</sub> ist explizit volumen- bzw. verdünnungsabhängig und darf nicht 1:1 mit der statischen β gleichgesetzt werden.</p>
                     <div class="grid-3-col" style="margin-bottom:1rem; align-items:end;">
                         <div>
@@ -382,9 +383,9 @@
                     <div id="plot-buffer" style="width:100%; height:450px;"></div>
                 </article>
                 <article id="tab6" class="tab-content">
-                    <h3>Wendepunkte der Titrationskurve</h3>
+                    <h2>Wendepunkte der Titrationskurve</h2>
                     <p>Wendepunkte (d²pH/dV² = 0) markieren Äquivalenzpunkte und Puffermaxima auf der Titrationskurve (Asuero & Michałowski, Gl. [50–54]).</p>
-                    <div id="inflection-results" class="metrics-grid" style="margin-bottom:1rem;"></div>
+                    <div id="inflection-results" class="metrics-grid" role="status" aria-live="polite" style="margin-bottom:1rem;"></div>
                     <div id="plot-inflection" style="width:100%; height:500px;"></div>
                 </article>
             </section>
@@ -604,8 +605,10 @@
             bar.style.cssText = 'text-align:right; margin-top:0.4rem;';
             const btn = document.createElement('button');
             btn.className = 'secondary outline';
+            btn.type = 'button';
             btn.style.cssText = 'width:auto; padding:0.25rem 0.7rem; font-size:0.82em;';
-            btn.textContent = '⬇ CSV';
+            btn.setAttribute('aria-label', 'Diagrammdaten als CSV-Datei herunterladen');
+            btn.innerHTML = '<span aria-hidden="true">⬇</span> CSV';
             btn.addEventListener('click', () => {
                 const { rows, filename } = getRowsFn();
                 downloadCSV(filename, rows);
@@ -624,6 +627,13 @@
             themed.paper_bgcolor = 'rgba(0,0,0,0)';
             themed.plot_bgcolor = 'rgba(0,0,0,0)';
             themed.font = Object.assign({ family: PLOT_FONT, color: PLOT_TEXT, size: 12 }, layout.font || {});
+            // Text alternative for screen readers (Plotly SVG is otherwise opaque; full data via CSV export).
+            const el = typeof divId === 'string' ? document.getElementById(divId) : divId;
+            if (el) {
+                const t = themed.title && themed.title.text ? themed.title.text : themed.title;
+                el.setAttribute('role', 'img');
+                el.setAttribute('aria-label', (t || 'Diagramm') + ' — interaktives Diagramm; die zugrunde liegenden Daten sind über den CSV-Export zugänglich.');
+            }
             return Plotly.react(divId, data, themed, config || { responsive: true });
         }
 
@@ -782,24 +792,27 @@
             div.dataset.componentId = id;
 
             const canRemove = ui.mixtureContainer.children.length > 0;
+            const componentIndex = ui.mixtureContainer.children.length + 1;
 
+            div.setAttribute('role', 'group');
+            div.setAttribute('aria-label', `Analytkomponente ${componentIndex}`);
             div.innerHTML = `
-                ${canRemove ? `<button class="remove-btn" title="Komponente entfernen" data-remove="${id}">×</button>` : ''}
+                ${canRemove ? `<button type="button" class="remove-btn" aria-label="Komponente entfernen" data-remove="${id}"><span aria-hidden="true">×</span></button>` : ''}
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.25rem;">
                     <div>
-                        <label>Symbol</label>
-                        <input type="text" class="comp-symbol" value="${symbol}" maxlength="5" data-id="${id}">
+                        <label for="comp-symbol-${id}">Symbol</label>
+                        <input type="text" id="comp-symbol-${id}" class="comp-symbol" value="${symbol}" maxlength="5" data-id="${id}">
                     </div>
                     <div>
-                        <label>Konz. (mol/L)</label>
-                        <input type="number" class="comp-conc" value="${conc}" step="0.01" min="1e-6" data-id="${id}">
+                        <label for="comp-conc-${id}">Konz. (mol/L)</label>
+                        <input type="number" id="comp-conc-${id}" class="comp-conc" value="${conc}" step="0.01" min="1e-6" data-id="${id}">
                     </div>
                 </div>
-                <label>Wertigkeit</label>
-                <input type="number" class="comp-n" value="${n}" min="1" max="5" step="1" data-id="${id}">
+                <label for="comp-n-${id}">Wertigkeit</label>
+                <input type="number" id="comp-n-${id}" class="comp-n" value="${n}" min="1" max="5" step="1" data-id="${id}">
                 ${!isAcid ? `
-                <label style="font-size:0.85em;" title="Ladung z der vollständig deprotonierten Form L. 0 = neutrale Base/Amin (NH₃→NH₄⁺); −2 = Carbonat (CO₃²⁻); −3 = Phosphat (PO₄³⁻). Beeinflusst nur die Speziesbeschriftung, nicht die Kurve.">Ladung z (voll deprotoniert)</label>
-                <input type="number" class="comp-charge" value="${opts.charge != null ? opts.charge : 0}" step="1" data-id="${id}">` : ''}
+                <label for="comp-charge-${id}" style="font-size:0.85em;" title="Ladung z der vollständig deprotonierten Form L. 0 = neutrale Base/Amin (NH₃→NH₄⁺); −2 = Carbonat (CO₃²⁻); −3 = Phosphat (PO₄³⁻). Beeinflusst nur die Speziesbeschriftung, nicht die Kurve.">Ladung z (voll deprotoniert)</label>
+                <input type="number" id="comp-charge-${id}" class="comp-charge" value="${opts.charge != null ? opts.charge : 0}" step="1" data-id="${id}">` : ''}
                 <div class="comp-pkas" data-id="${id}"></div>
             `;
 
@@ -827,13 +840,17 @@
 
         function updateComponentPkas(div, n, defaults) {
             const container = div.querySelector('.comp-pkas');
+            const cid = div.dataset.componentId;
             container.innerHTML = '';
             for (let i = 0; i < n; i++) {
+                const inputId = `comp-pka-${cid}-${i}`;
                 const label = document.createElement('label');
                 label.innerHTML = `pK<sub>a</sub> ${i + 1}`;
                 label.style.fontSize = '0.85em';
+                label.setAttribute('for', inputId);
                 const input = document.createElement('input');
                 input.type = 'number';
+                input.id = inputId;
                 input.className = 'comp-pka-input';
                 input.step = 0.01;
                 input.value = defaults[i] !== undefined ? defaults[i] : 7.0;
@@ -1152,7 +1169,20 @@
                         fillcolor: grad[i], opacity: 0.3, layer: 'below', line: { width: 0 }
                     });
                 }
+                // Non-colour cue for the transition band (WCAG 1.4.1): dashed boundary lines + label
+                [info.range[0], info.range[1]].forEach(phv => {
+                    layout.shapes.push({
+                        type: 'line', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: phv, y1: phv,
+                        line: { color: 'rgba(205,215,225,0.55)', width: 1, dash: 'dot' }
+                    });
+                });
+                layout.annotations.push({
+                    xref: 'paper', x: 0.012, y: (info.range[0] + info.range[1]) / 2, xanchor: 'left',
+                    text: `Umschlag ${getAxisLabel(params.pks)} ${info.range[0].toFixed(1)}–${info.range[1].toFixed(1)}`,
+                    showarrow: false, font: { size: 10, color: '#d3dde6' }, bgcolor: 'rgba(0,0,0,0.45)', borderpad: 2
+                });
 
+                const rangeCard = `<div><h3>Umschlagsbereich</h3><p>${info.range[0].toFixed(1)}–${info.range[1].toFixed(1)}</p></div>`;
                 if (titration.phs.length > 1) {
                     const indicator_midpoint_ph = (info.range[0] + info.range[1]) / 2;
                     let endpoint_vol = null;
@@ -1166,14 +1196,14 @@
                     if (endpoint_vol === null) {
                         // The indicator's transition pH lies outside the curve's pH range
                         // (e.g. an acidic-range indicator on a weak-acid/strong-base titration).
-                        indicatorMetricsDiv.innerHTML = `
+                        indicatorMetricsDiv.innerHTML = rangeCard + `
                             <div style="grid-column:1/-1;"><h3>Umschlagspunkt (pH ${indicator_midpoint_ph.toFixed(2)})</h3><p style="font-size:1rem;">im erreichbaren ${getAxisLabel(params.pks)}-Bereich nicht erreicht — bitte einen passenderen Indikator wählen.</p></div>`;
                     } else {
                         const target_eq_idx = parseInt(ui.targetEqIdxSelect.value || '1') - 1;
                         const target_vol = eq_vols_l[target_eq_idx] * 1000;
                         const error = endpoint_vol - target_vol;
                         const rel_error = target_vol > 0 ? (error / target_vol) * 100 : 0;
-                        indicatorMetricsDiv.innerHTML = `
+                        indicatorMetricsDiv.innerHTML = rangeCard + `
                             <div><h3>Endpunktvolumen (pH ${indicator_midpoint_ph.toFixed(2)})</h3><p>${endpoint_vol.toFixed(3)} mL</p></div>
                             <div><h3>Indikatorfehler vs. ÄP ${target_eq_idx+1}</h3><p>${error.toFixed(3)} mL</p></div>
                             <div><h3>Relativer Fehler</h3><p>${rel_error.toFixed(2)} %</p></div>
@@ -1869,9 +1899,10 @@
             button.addEventListener('click', () => {
                 const targetTab = button.dataset.tab;
                 ui.tabContents.forEach(content => content.classList.remove('active'));
-                ui.tabButtons.forEach(btn => btn.classList.remove('active'));
+                ui.tabButtons.forEach(btn => { btn.classList.remove('active'); btn.removeAttribute('aria-current'); });
                 document.getElementById(targetTab).classList.add('active');
                 button.classList.add('active');
+                button.setAttribute('aria-current', 'true');
                 updateAllPlots();
             });
         });

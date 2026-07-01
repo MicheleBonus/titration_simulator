@@ -6,149 +6,183 @@
     <title>Universeller Titrations-Simulator</title>
     <!-- Modernes, klassenloses CSS-Framework für gutes Aussehen ohne Aufwand -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <!-- Plotly.js Bibliothek für die Grafiken -->
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- Typografie: Space Grotesk (Display), IBM Plex Sans (Fließtext), IBM Plex Mono (Messwerte) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+    <!-- Plotly.js für die Grafiken — feste Version (nicht "latest") mit Subresource-Integrity -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"
+            integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7"
+            crossorigin="anonymous"></script>
     <style>
+        /* ===================== DESIGN TOKENS ("Analytisches Instrument") ===================== */
         :root {
             --pico-font-size: 100%;
-            --pico-form-element-spacing-vertical: 0.75rem;
-            --pico-card-padding: 1.5rem;
+            --pico-form-element-spacing-vertical: 0.7rem;
+            --pico-card-padding: 1.4rem;
+            --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+            --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+            --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+            /* pH-Spektrum als Signatur (rot → violett) */
+            --ph-spectrum: linear-gradient(90deg,
+                #e23b3b 0%, #ef7d2e 18%, #f3c53b 34%, #57c04a 52%,
+                #2f8fd4 70%, #4b53c9 85%, #7b3fb0 100%);
         }
+        /* Instrument-Panel: kühle Labor-Slate-Palette (überschreibt Pico-Dark-Defaults) */
+        [data-theme="dark"] {
+            --pico-background-color: #0e1319;
+            --pico-color: #e7edf3;
+            --pico-h1-color: #f4f7fa;
+            --pico-h2-color: #eef2f6;
+            --pico-h3-color: #e7edf3;
+            --pico-muted-color: #93a1b2;
+            --pico-muted-border-color: #2a3542;
+            --pico-card-background-color: #161d27;
+            --pico-card-border-color: #26303c;
+            --pico-card-sectioning-background-color: #131a23;
+            --pico-border-color: #2a3542;
+            --pico-form-element-background-color: #1d2531;
+            --pico-form-element-border-color: #33404f;
+            /* Phenolphthalein-Rosa als Primärfarbe (der klassische Umschlag) */
+            --pico-primary: #f06aa0;
+            --pico-primary-background: #d43f77;
+            --pico-primary-hover: #f588b3;
+            --pico-primary-hover-background: #e0487f;
+            --pico-primary-focus: rgba(224, 72, 127, 0.35);
+            --pico-primary-inverse: #ffffff;
+            --pico-primary-underline: rgba(240, 106, 160, 0.5);
+            --pico-primary-border: var(--pico-primary-background);
+            --amber: #f5a524;
+            --info: #56b6e8;
+        }
+        html { scroll-behavior: smooth; }
         body {
-            padding: 1rem;
+            padding: 1.25rem 1rem 3rem;
+            font-family: var(--font-body);
+            background-image: radial-gradient(1100px 560px at 50% -12%, #182430 0%, transparent 62%);
+            background-attachment: fixed;
         }
-        main.container {
-            max-width: 1400px;
+        main.container { max-width: 1400px; }
+        h1, h2, h3, h4, h5, summary { font-family: var(--font-display); letter-spacing: -0.01em; }
+
+        /* ===================== HEADER + SIGNATUR ===================== */
+        header { text-align: center; margin-bottom: 1.6rem; }
+        header h1 { font-size: clamp(1.5rem, 2.4vw, 2.1rem); font-weight: 600; margin-bottom: 0.3rem; }
+        header p { color: var(--pico-muted-color); margin-bottom: 0.9rem; }
+        .ph-spectrum-rule {
+            height: 3px; width: min(560px, 92%); margin: 0 auto; border-radius: 3px;
+            background: var(--ph-spectrum); box-shadow: 0 0 18px rgba(224,72,127,0.22);
         }
-        .grid {
-            grid-template-columns: 1fr 2.5fr;
-            gap: var(--pico-spacing);
+
+        /* ===================== LAYOUT (mobile-first) ===================== */
+        .grid { grid-template-columns: 1fr; gap: var(--pico-spacing); }
+        .grid-3-col { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        @media (min-width: 992px) {
+            .grid { grid-template-columns: minmax(280px, 1fr) 2.5fr; }
+            .grid-3-col { grid-template-columns: repeat(3, 1fr); }
         }
-        h1, h2 {
-            text-align: center;
-        }
-        .tab-buttons {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
+        article { border: 1px solid var(--pico-card-border-color); box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
+
+        /* ===================== TABS (Signatur: pH-Spektrum-Unterstrich) ===================== */
+        .tab-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; margin-bottom: 1.25rem; }
+        @media (min-width: 680px)  { .tab-buttons { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1100px) { .tab-buttons { grid-template-columns: repeat(6, 1fr); } }
         .tab-buttons button {
-            background-color: var(--pico-muted-background-color);
+            background: var(--pico-card-background-color); color: var(--pico-muted-color);
+            border: 1px solid var(--pico-card-border-color); border-radius: var(--pico-border-radius);
+            font-family: var(--font-body); font-size: 0.85rem; font-weight: 500;
+            padding: 0.6rem 0.5rem; position: relative; overflow: hidden; transition: color .15s, border-color .15s;
         }
-        .tab-buttons button.active {
-            background-color: var(--pico-primary);
+        .tab-buttons button:hover { color: var(--pico-color); border-color: var(--pico-primary-background); }
+        .tab-buttons button.active { color: var(--pico-color); font-weight: 600; border-color: var(--pico-primary-background); }
+        .tab-buttons button.active::after {
+            content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--ph-spectrum);
         }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            text-align: center;
-        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ===================== MESSWERT-KARTEN ===================== */
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; text-align: center; }
         .metrics-grid div {
-            padding: 1rem;
-            background: var(--pico-card-background-color);
-            border-radius: var(--pico-border-radius);
-            border: 1px solid var(--pico-card-border-color);
+            padding: 0.9rem 1rem; background: var(--pico-card-sectioning-background-color);
+            border-radius: var(--pico-border-radius); border: 1px solid var(--pico-card-border-color);
         }
         .metrics-grid h3 {
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-            font-size: 1rem;
-            color: var(--pico-muted-color);
+            margin: 0 0 0.4rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;
+            text-transform: uppercase; color: var(--pico-muted-color); font-family: var(--font-body);
         }
         .metrics-grid p {
-            margin-bottom: 0;
-            font-size: 1.5rem;
-            font-weight: bold;
+            margin: 0; font-size: 1.4rem; font-weight: 600; color: var(--pico-color);
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
         }
-        .grid-3-col {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-        }
-        /* Style für das Expander-Element */
+
+        /* ===================== SIDEBAR / KOMPONENTEN ===================== */
+        .grid-3-col { }
         details {
-            margin-bottom: 1rem;
-            background: var(--pico-card-background-color);
-            border-radius: var(--pico-border-radius);
-            padding: 1rem;
+            margin-bottom: 1rem; background: var(--pico-card-sectioning-background-color);
+            border: 1px solid var(--pico-card-border-color); border-radius: var(--pico-border-radius); padding: 1rem;
         }
-        summary {
-            font-weight: bold;
-            cursor: pointer;
-        }
-        sup, sub {
-            line-height: 0;
-        }
+        summary { font-weight: 600; cursor: pointer; }
+        sup, sub { line-height: 0; }
         .mixture-component {
-            border: 1px solid var(--pico-muted-border-color);
-            border-radius: var(--pico-border-radius);
-            padding: 0.75rem;
-            margin-bottom: 0.5rem;
-            position: relative;
+            display: block; /* override Pico's [role=group] { display:inline-flex } */
+            border: 1px solid var(--pico-muted-border-color); border-left: 3px solid var(--pico-primary-background);
+            border-radius: var(--pico-border-radius); padding: 0.75rem; margin-bottom: 0.6rem; position: relative;
+            background: var(--pico-card-sectioning-background-color);
         }
         .mixture-component .remove-btn {
-            position: absolute;
-            top: 0.25rem;
-            right: 0.25rem;
-            background: crimson;
-            border: none;
-            color: white;
-            width: 1.5rem;
-            height: 1.5rem;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 0.8rem;
-            padding: 0;
-            line-height: 1.5rem;
-            text-align: center;
+            position: absolute; top: 0.4rem; right: 0.4rem; background: transparent;
+            border: 1px solid var(--pico-muted-border-color); color: var(--pico-muted-color);
+            width: 1.6rem; height: 1.6rem; border-radius: 50%; cursor: pointer; font-size: 0.9rem;
+            padding: 0; line-height: 1; display: grid; place-items: center; transition: background .15s, color .15s, border-color .15s;
         }
-        #add-analyte-btn {
-            width: 100%;
-            margin-top: 0.5rem;
-            margin-bottom: 0.5rem;
+        .mixture-component .remove-btn:hover, .mixture-component .remove-btn:focus-visible {
+            background: var(--pico-del-color); color: #fff; border-color: var(--pico-del-color);
         }
-        .inflection-marker {
-            font-size: 0.9em;
-        }
+        #add-analyte-btn { width: 100%; margin: 0.5rem 0; }
+        input[type="number"], input[type="text"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+        input[readonly] { opacity: 0.65; cursor: not-allowed; background: var(--pico-background-color); }
+
+        /* ===================== HINWEISE (info / warn / error) ===================== */
         #simulation-notice {
-            margin-top: 0.75rem;
-            padding: 0.6rem 0.8rem;
-            border: 1px solid var(--pico-del-color);
-            border-radius: var(--pico-border-radius);
-            color: var(--pico-del-color);
-            background: color-mix(in srgb, var(--pico-del-color) 14%, transparent);
-            display: none;
-            font-size: 0.92rem;
+            margin-top: 0.75rem; padding: 0.6rem 0.85rem; border-radius: var(--pico-border-radius);
+            display: none; font-size: 0.92rem; border: 1px solid; font-family: var(--font-body);
         }
-        .comp-validation-error {
-            color: var(--pico-del-color);
-            font-size: 0.78rem;
-            margin-top: -0.35rem;
-            margin-bottom: 0.35rem;
-            display: none;
-        }
+        #simulation-notice.info  { color: var(--info);  border-color: var(--info);  background: color-mix(in srgb, var(--info) 12%, transparent); }
+        #simulation-notice.warn  { color: var(--amber); border-color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+        #simulation-notice.error { color: var(--pico-del-color); border-color: var(--pico-del-color); background: color-mix(in srgb, var(--pico-del-color) 12%, transparent); }
+        .comp-validation-error { color: var(--pico-del-color); font-size: 0.78rem; margin: -0.35rem 0 0.35rem; display: none; }
+        .inflection-marker { font-size: 0.9em; }
+        .export-bar button { font-family: var(--font-body); }
+
+        @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition: none !important; animation: none !important; } }
     </style>
 </head>
 <body>
     <main class="container">
         <header>
             <h1>Universeller Simulator für polyprotische Titrationen</h1>
-            <p style="text-align: center;">Eine interaktive Web-Anwendung zur exakten Simulation von Säure-Base-Titrationen.</p>
+            <p>Interaktive Simulation von Säure-Base-Titrationen über die exakte Ladungsbilanz.</p>
+            <div class="ph-spectrum-rule" role="presentation"></div>
         </header>
 
         <div class="grid">
             <aside>
                 <article>
-                    <h3 style="margin-top:0;">Systemeinstellungen</h3>
-                    
+                    <h2 style="margin-top:0;">Systemeinstellungen</h2>
+
+                    <label for="preset-select">Voreinstellung (typische Titration)</label>
+                    <select id="preset-select" aria-label="Voreinstellung für eine typische Titration wählen">
+                        <option value="" selected>— eigene Einstellungen —</option>
+                        <option value="hcl">Starke Säure (HCl) → NaOH</option>
+                        <option value="acetic">Schwache Säure (Essigsäure) → NaOH</option>
+                        <option value="phosphoric">Phosphorsäure H₃PO₄ (3 ÄP) → NaOH</option>
+                        <option value="citric">Citronensäure (3 pKs) → NaOH</option>
+                        <option value="carbonate">Carbonat Na₂CO₃ (2 ÄP) → HCl</option>
+                        <option value="ammonia">Schwache Base (Ammoniak) → HCl</option>
+                        <option value="borate">Borsäure + Mannitol → NaOH</option>
+                    </select>
+
                     <label for="analyte_mode">Der Analyt ist eine...</label>
                     <select id="analyte_mode">
                         <option value="acid" selected>Säure</option>
@@ -169,7 +203,7 @@
                     <label for="pks">pK<sub>L</sub>: <span id="pks_value">14.00</span></label>
                     <input type="number" id="pks" min="0" max="50" value="14.0" step="0.01"
                            readonly title="Autoprotolysekonstante des Lösungsmittels. Bei 'Benutzerdefiniert' editierbar.">
-                    <small id="solvent-warning" style="color: var(--pico-del-color); display:none;"></small>
+                    <small id="solvent-warning" role="status" aria-live="polite" style="color: var(--pico-del-color); display:none;"></small>
                     
                     <hr>
                     
@@ -191,8 +225,9 @@
                         <label for="c_titrant">Konz. (mol/L)</label>
                         <input type="number" id="c_titrant" value="0.100" step="0.01" min="1e-6">
 
-                        <label for="pkas_titrant" title="Für starke Basen (NaOH) pKs von H₂O (~15.74) nutzen. Für starke Säuren (HCl) pKs von H₃O⁺ (~-1.74) nutzen.">pKs korresp. Säure</label>
+                        <label for="pkas_titrant">pKs korresp. Säure des Titranten</label>
                         <input type="number" id="pkas_titrant" value="15.74" step="0.01">
+                        <small style="color:var(--pico-muted-color); display:block; margin-top:-0.4rem;">Starke Base (NaOH): 15.74 · Starke Säure (HCl): −1.74</small>
 
                         <label for="co2_concentration" title="CO₂-Kontamination in NaOH-Maßlösung (Asuero & Michałowski, Gl. [34])">CO₂-Konzentration (mol/L)</label>
                         <input type="number" id="co2_concentration" value="0" step="0.0001" min="0" title="0 = keine Verunreinigung. Typisch: 0.001–0.005 mol/L für handelsübliche NaOH.">
@@ -216,7 +251,7 @@
             </aside>
             <section>
                 <nav class="tab-buttons">
-                    <button data-tab="tab1" class="active">Titrationskurve & Indikator</button>
+                    <button type="button" data-tab="tab1" class="active" aria-current="true">Titrationskurve & Indikator</button>
                     <button data-tab="tab2">Ableitungsdiagramme</button>
                     <button data-tab="tab3">Speziesverteilung & n&#772;</button>
                     <button data-tab="tab4">Rücktitration</button>
@@ -225,7 +260,7 @@
                 </nav>
 
                 <article id="tab1" class="tab-content active">
-                    <h3>Titrationskurve und Simulation des chemischen Indikators</h3>
+                    <h2>Titrationskurve und Simulation des chemischen Indikators</h2>
                     <div class="grid" style="grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
                         <div>
                             <label for="indicator-select">Chemischen Indikator auswählen</label>
@@ -244,17 +279,21 @@
                         </div>
                     </div>
                     <div id="simulation-notice" role="alert"></div>
-                    <div id="indicator-metrics" class="metrics-grid" style="margin-top:1rem; display:none;"></div>
+                    <div id="indicator-metrics" class="metrics-grid" role="status" aria-live="polite" style="margin-top:1rem; display:none;"></div>
+                    <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:0.6rem;">
+                        <button id="freeze-curve-btn" type="button" class="secondary outline" style="width:auto; padding:0.3rem 0.8rem; font-size:0.84em;" title="Aktuelle Kurve als grau gestrichelte Vergleichskurve fixieren (max. 4)">Kurve fixieren</button>
+                        <button id="clear-frozen-btn" type="button" class="secondary outline" style="width:auto; padding:0.3rem 0.8rem; font-size:0.84em;">Fixierte löschen</button>
+                    </div>
                     <div id="plot-main" style="width:100%; height:500px;"></div>
-					<div id="equivalence-table" class="metrics-grid" style="margin-top:1rem;"></div>
+					<div id="equivalence-table" class="metrics-grid" role="status" aria-live="polite" style="margin-top:1rem;"></div>
                 </article>
 
                 <article id="tab2" class="tab-content">
-                    <h3>Endpunktanalyse</h3>
+                    <h2>Endpunktanalyse</h2>
                     <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
-                        <button id="tab2-btn-derivatives" onclick="switchTab2('derivatives')"
+                        <button id="tab2-btn-derivatives" type="button"
                                 style="flex:1;">Ableitungsdiagramme</button>
-                        <button id="tab2-btn-gran" class="outline" onclick="switchTab2('gran')"
+                        <button id="tab2-btn-gran" type="button" class="outline"
                                 style="flex:1;">Gran-Plot</button>
                     </div>
                     <div id="tab2-panel-derivatives">
@@ -262,17 +301,19 @@
                     </div>
                     <div id="tab2-panel-gran" style="display:none;">
                         <p style="font-size:0.9em; color:var(--pico-muted-color);">
-                            Linearisierung der Titrationskurve (Gran 1952).
-                            G₁ = (V₀+V)·10<sup>−p[H]</sup> (vor ÄP) und
-                            G₂ = (V₀+V)·10<sup>p[H]−pK<sub>L</sub></sup> (nach ÄP)
-                            sind jeweils linear in V; die Nullstellen geben das Äquivalenzvolumen.
+                            Linearisierung der Titrationskurve (Gran 1952). Im Pufferbereich vor dem ÄP gilt
+                            G₁ = (V−V<sub>vorher</sub>)·10<sup>−p[H]</sup> (bzw. (V₀+V)·10<sup>−p[H]</sup> für starke Stufen),
+                            im Überschussbereich nach dem letzten ÄP G₂ = (V₀+V)·10<sup>p[H]−pK<sub>L</sub></sup>;
+                            beide sind linear in V, ihre Nullstellen geben das Äquivalenzvolumen.
+                            Bei mehrstufigen Titrationen markieren die Puffer-Geraden (G₁) jeden ÄP, die
+                            Überschuss-Gerade (G₂) nur den letzten (dazwischen ist G₂ nicht linear).
                         </p>
                         <div id="plot-gran" style="width:100%; height:430px;"></div>
                     </div>
                 </article>
 
                 <article id="tab3" class="tab-content">
-                    <h3>Speziesverteilung und Bjerrum-Funktion (mittlere Protonenzahl n&#772;)</h3>
+                    <h2>Speziesverteilung und Bjerrum-Funktion (mittlere Protonenzahl n&#772;)</h2>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
                         <fieldset>
                             <legend>Y-Achse anzeigen als:</legend>
@@ -296,8 +337,9 @@
                 </article>
 
                 <article id="tab4" class="tab-content">
-                    <h3>Universeller Simulator für Rücktitrationen</h3>
+                    <h2>Universeller Simulator für Rücktitrationen</h2>
                     <p>Bei einer <strong>Rücktitration</strong> wird ein bekannter Überschuss eines Reagenzes (R1) zu einem Analyten gegeben. Anschließend wird der <em>nicht umgesetzte Überschuss</em> von R1 mit einer Maßlösung (R2) titriert.</p>
+                    <p><small style="color:var(--pico-muted-color);">Hinweis: Stoffmenge, Masse und Reinheit werden rein stöchiometrisch berechnet und sind exakt. Die dargestellte <em>Kurvenform</em> setzt ein säure-base-inertes Reaktionsprodukt voraus (R1 als starke einprotonige Spezies). Freigesetzte puffernde Produkte – z.&nbsp;B. Carbonat/Hydrogencarbonat aus einer Carbonatbestimmung – sind nicht modelliert; solche Titrationen erfordern in der Praxis das Austreiben von CO₂ (Auskochen). Bei MgO/ZnO entsteht kein CO₂.</small></p>
                     <hr>
                     <h4>Parameter für die Rücktitration</h4>
                     <div class="grid-3-col">
@@ -331,13 +373,13 @@
                             <input type="number" id="bt_pka_r2" value="-1.74" step="0.01">
                         </section>
                     </div>
-                    <button id="run_back_titration" style="width:100%; margin-top:1rem;">▶️ Rücktitrations-Simulation starten</button>
-                    <div id="back-titration-results" style="margin-top:1rem;"></div>
+                    <button id="run_back_titration" style="width:100%; margin-top:1rem;">Rücktitration simulieren</button>
+                    <div id="back-titration-results" role="status" aria-live="polite" style="margin-top:1rem;"></div>
                     <div id="plot-back-titration" style="width:100%; height:500px; margin-top:1rem;"></div>
                 </article>
                 <article id="tab5" class="tab-content">
-                    <h3>Pufferkapazität: statisch (β) und dynamisch (β<sub>V</sub>)</h3>
-                    <p>Die <strong>statische</strong> Pufferkapazität β = dΔ/dpH (Van Slyke) beschreibt die Widerstandsfähigkeit gegen pH-Änderung bei konstanter Gesamtkonzentration. Die <strong>dynamische</strong> Pufferkapazität β<sub>V</sub> = dc/dpH (Michałowski, Gl. [93]) berücksichtigt den Verdünnungseffekt während der Titration. Daher ist β<sub>V</sub> explizit volumen- bzw. verdünnungsabhängig und darf nicht 1:1 mit der statischen β gleichgesetzt werden.</p>
+                    <h2>Pufferkapazität: statisch (β) und dynamisch (β<sub>V</sub>)</h2>
+                    <p>Die <strong>statische</strong> Pufferkapazität β = dC<sub>b</sub>/dpH (Van Slyke) beschreibt die Widerstandsfähigkeit gegen pH-Änderung bei konstanter Gesamtkonzentration; sie hat ihr Maximum bei pH = pK<sub>a</sub> (Halbneutralisation) und ein Minimum am Äquivalenzpunkt. Die <strong>dynamische</strong> Pufferkapazität β<sub>V</sub> = dc/dpH (Michałowski, Gl. [93]) berücksichtigt den Verdünnungseffekt während der Titration; ihr Maximum liegt dadurch geringfügig <em>unterhalb</em> des pK<sub>a</sub>. β<sub>V</sub> ist explizit volumen- bzw. verdünnungsabhängig und darf nicht 1:1 mit der statischen β gleichgesetzt werden.</p>
                     <div class="grid-3-col" style="margin-bottom:1rem; align-items:end;">
                         <div>
                             <label for="buffer_display_mode">Darstellung</label>
@@ -357,9 +399,9 @@
                     <div id="plot-buffer" style="width:100%; height:450px;"></div>
                 </article>
                 <article id="tab6" class="tab-content">
-                    <h3>Wendepunkte der Titrationskurve</h3>
+                    <h2>Wendepunkte der Titrationskurve</h2>
                     <p>Wendepunkte (d²pH/dV² = 0) markieren Äquivalenzpunkte und Puffermaxima auf der Titrationskurve (Asuero & Michałowski, Gl. [50–54]).</p>
-                    <div id="inflection-results" class="metrics-grid" style="margin-bottom:1rem;"></div>
+                    <div id="inflection-results" class="metrics-grid" role="status" aria-live="polite" style="margin-bottom:1rem;"></div>
                     <div id="plot-inflection" style="width:100%; height:500px;"></div>
                 </article>
             </section>
@@ -368,6 +410,15 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+
+        // Fail gracefully if the plotting library did not load (offline / blocked CDN / SRI mismatch)
+        if (typeof Plotly === 'undefined') {
+            document.querySelector('main.container').insertAdjacentHTML('afterbegin',
+                '<article role="alert" style="border:1px solid var(--pico-del-color); color:var(--pico-del-color);">' +
+                '<strong>Diagramm-Bibliothek konnte nicht geladen werden.</strong> Bitte die Internetverbindung prüfen ' +
+                'und die Seite neu laden (Plotly.js wird von einem CDN bezogen).</article>');
+            return;
+        }
 
         // =============================================================================
         // KONSTANTEN & KONFIGURATION
@@ -403,9 +454,10 @@
             "Tropaeolin O": { range: [11.1, 12.7], colors: ["yellow", "orange"] },
         };
 
-        // CO₂/H₂CO₃ dissociation constants (pK₁=6.3, pK₂=10.1)
-        const CO2_PK1 = 6.3;
-        const CO2_PK2 = 10.1;
+        // CO₂/H₂CO₃ dissociation constants (Harris: pK₁=6.35, pK₂=10.33) — kept identical
+        // to the carbonate base default DEFAULT_PKAS.base[2] so the same system is one value.
+        const CO2_PK1 = 6.35;
+        const CO2_PK2 = 10.33;
 
         // =============================================================================
         // HILFSFUNKTIONEN
@@ -499,8 +551,12 @@
         const SUB = ['₀','₁','₂','₃','₄','₅','₆','₇','₈','₉'];
         const SUP_DIGIT = ['⁰','¹','²','³','⁴','⁵','⁶','⁷','⁸','⁹'];
 
-        function formatSpeciesLabelPlain(baseName, totalProtons, numProtonsOnSpecies, isAcid) {
-            const charge = isAcid ? (numProtonsOnSpecies - totalProtons) : numProtonsOnSpecies;
+        // chargeOfL = charge of the fully deprotonated form L; a species carrying
+        // numProtonsOnSpecies protons therefore has charge (chargeOfL + numProtonsOnSpecies).
+        // Neutral acid H_qA: chargeOfL = -q. Neutral amine base (NH₃): chargeOfL = 0.
+        // Anionic salt base (carbonate CO₃²⁻): chargeOfL = -2; phosphate PO₄³⁻: -3.
+        function formatSpeciesLabelPlain(baseName, chargeOfL, numProtonsOnSpecies) {
+            const charge = chargeOfL + numProtonsOnSpecies;
             let chargeStr = '';
             if (charge === 1) chargeStr = '⁺';
             else if (charge === -1) chargeStr = '⁻';
@@ -565,14 +621,36 @@
             bar.style.cssText = 'text-align:right; margin-top:0.4rem;';
             const btn = document.createElement('button');
             btn.className = 'secondary outline';
+            btn.type = 'button';
             btn.style.cssText = 'width:auto; padding:0.25rem 0.7rem; font-size:0.82em;';
-            btn.textContent = '⬇ CSV';
+            btn.setAttribute('aria-label', 'Diagrammdaten als CSV-Datei herunterladen');
+            btn.innerHTML = '<span aria-hidden="true">⬇</span> CSV';
             btn.addEventListener('click', () => {
                 const { rows, filename } = getRowsFn();
                 downloadCSV(filename, rows);
             });
             bar.appendChild(btn);
             plotEl.parentElement.appendChild(bar);
+        }
+
+        // Central plot renderer: applies the instrument theme (transparent background so the
+        // chart sits on the card, not on an opaque grey block) and uses Plotly.react — a diff
+        // update rather than a full teardown, so live parameter changes no longer flash.
+        const PLOT_FONT = '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
+        const PLOT_TEXT = '#c5d0dc';
+        function drawPlot(divId, data, layout, config) {
+            const themed = Object.assign({}, layout);
+            themed.paper_bgcolor = 'rgba(0,0,0,0)';
+            themed.plot_bgcolor = 'rgba(0,0,0,0)';
+            themed.font = Object.assign({ family: PLOT_FONT, color: PLOT_TEXT, size: 12 }, layout.font || {});
+            // Text alternative for screen readers (Plotly SVG is otherwise opaque; full data via CSV export).
+            const el = typeof divId === 'string' ? document.getElementById(divId) : divId;
+            if (el) {
+                const t = themed.title && themed.title.text ? themed.title.text : themed.title;
+                el.setAttribute('role', 'img');
+                el.setAttribute('aria-label', (t || 'Diagramm') + ' — interaktives Diagramm; die zugrunde liegenden Daten sind über den CSV-Export zugänglich.');
+            }
+            return Plotly.react(divId, data, themed, config || { responsive: true });
         }
 
         // CO₂ formation function m̄ for H₂CO₃ (Eq. [35])
@@ -600,14 +678,20 @@
 
             calculateCurve() {
                 const p = this.params;
-                const ph_points = linspace(-1, p.pks + 1, 3000);
+                // Widen the pH sweep for concentrated solutions so the V=0 start (and the
+                // excess-titrant tail) are not truncated: for a strong acid the initial pH
+                // is ≈ -log10(C), which can fall below -1 (e.g. ~12 M HCl → pH ≈ -1.08).
+                const maxConc = Math.max(p.c_titrant || 0, ...p.components.map(c => c.concentration || 0), 1e-9);
+                const margin = Math.max(0, Math.log10(maxConc)) + 1;
+                const ph_points = linspace(Math.min(-1, -margin), Math.max(p.pks + 1, p.pks + margin), 3000);
 
                 let v_ph_pairs = [];
 
                 ph_points.forEach(ph => {
                     const h_plus = Math.pow(10, -ph);
                     const oh_minus = Math.pow(10, ph - p.pks);
-                    const alpha = h_plus - oh_minus; // proton excess (Eq. [19])
+                    // proton excess (Eq. [19]) is (h_plus - oh_minus); used inline in the
+                    // titrant denominator and in the numerator below.
 
                     // Titrant contribution
                     const alphas_titrant = getAlphaFractions(ph, p.pkas_titrant);
@@ -619,8 +703,6 @@
                         const mbar = co2FormationFunction(ph);
                         titrant_denom -= (2 - mbar) * p.co2_concentration;
                     }
-
-                    const Z = -titrant_denom; // denominator: Z - α → -(titrant term)
 
                     // Analyte mixture contributions: sum over all components (Eq. [37])
                     let analyte_num = 0;
@@ -668,9 +750,6 @@
                         });
                         this.species_fractions_per_component.push(fracs);
                     }
-
-                    // For backward compatibility: first component species fractions
-                    this.species_fractions = this.species_fractions_per_component[0] || [];
                 }
             }
         }
@@ -708,12 +787,65 @@
 
         let currentSimulationData = {};
         let mixtureComponentCount = 0;
+        let frozenCurves = []; // G8: pinned comparison curves
+
+        function freezeCurrentCurve() {
+            const d = currentSimulationData;
+            if (!d.titration || !d.volumes_ml || d.volumes_ml.length < 2) return;
+            const comps = d.params.components.map(c => `${c.symbol} ${c.concentration}M`).join(' + ');
+            frozenCurves.push({
+                volumes_ml: d.volumes_ml.slice(),
+                phs: d.titration.phs.slice(),
+                phi_values: d.phi_values ? d.phi_values.slice() : null,
+                label: comps
+            });
+            if (frozenCurves.length > 4) frozenCurves.shift();
+            plotMainCurve();
+        }
+        function clearFrozenCurves() { frozenCurves = []; plotMainCurve(); }
 
         // --- Mixture component management ---
         const DEFAULT_PKAS = {
-            acid: { 1: [4.76], 2: [2.15, 7.20], 3: [2.15, 7.20, 12.35], 4: [1.8, 4.0, 8.0, 12.0], 5: [1.5, 3.5, 6.5, 9.5, 12.5] },
+            acid: { 1: [4.76], 2: [1.90, 6.07], 3: [2.15, 7.20, 12.35], 4: [1.8, 4.0, 8.0, 12.0], 5: [1.5, 3.5, 6.5, 9.5, 12.5] },
             base: { 1: [9.24], 2: [6.35, 10.33], 3: [2.15, 7.20, 12.35], 4: [1.8, 4.0, 8.0, 12.0], 5: [1.5, 3.5, 6.5, 9.5, 12.5] }
         };
+
+        // Canonical, Ph.-Eur.-relevant titrations for one-click setup (all aqueous). For bases,
+        // `charge` = z of the fully deprotonated form (labels only; see formatSpeciesLabelPlain).
+        const PRESETS = {
+            hcl:        { mode: 'acid', v: 50, cT: 0.1, pkasT: 15.74, comps: [{ symbol: 'HCl',   conc: 0.10, pkas: [-2] }] },
+            acetic:     { mode: 'acid', v: 50, cT: 0.1, pkasT: 15.74, comps: [{ symbol: 'HAc',   conc: 0.10, pkas: [4.76] }] },
+            phosphoric: { mode: 'acid', v: 50, cT: 0.1, pkasT: 15.74, comps: [{ symbol: 'H3PO4', conc: 0.10, pkas: [2.15, 7.20, 12.35] }] },
+            citric:     { mode: 'acid', v: 50, cT: 0.1, pkasT: 15.74, comps: [{ symbol: 'H3Cit', conc: 0.10, pkas: [3.13, 4.76, 6.40] }] },
+            carbonate:  { mode: 'base', v: 50, cT: 0.1, pkasT: -1.74, comps: [{ symbol: 'CO3',   conc: 0.05, pkas: [6.35, 10.33], charge: -2 }] },
+            ammonia:    { mode: 'base', v: 50, cT: 0.1, pkasT: -1.74, comps: [{ symbol: 'NH3',   conc: 0.10, pkas: [9.24], charge: 0 }] },
+            borate:     { mode: 'acid', v: 50, cT: 0.1, pkasT: 15.74, comps: [{ symbol: 'H3BO3', conc: 0.10, pkas: [4.3] }] },
+        };
+
+        function applyPreset(key) {
+            const preset = PRESETS[key];
+            if (!preset) return;
+            const isAcid = preset.mode === 'acid';
+            ui.analyteMode.value = preset.mode;
+            ui.analyteLabels.forEach(l => l.textContent = isAcid ? 'Säure' : 'Base');
+            ui.titrantLabels.forEach(l => l.textContent = isAcid ? 'Base' : 'Säure');
+            // all presets are aqueous
+            ui.solventSelect.value = '14.00|protic';
+            ui.pksSlider.value = 14.00;
+            ui.pksValue.textContent = '14.00';
+            ui.pksSlider.readOnly = true;
+            ui.solventWarning.style.display = 'none';
+            ui.vAnalyte.value = preset.v;
+            ui.cTitrant.value = preset.cT;
+            ui.pkasTitrant.value = preset.pkasT;
+            ui.co2Concentration.value = 0;
+            ui.mixtureContainer.innerHTML = '';
+            mixtureComponentCount = 0;
+            preset.comps.forEach(c => addMixtureComponent({
+                n: c.pkas.length, pkas: c.pkas, symbol: c.symbol, concentration: c.conc, charge: c.charge
+            }));
+            runFullSimulation();
+        }
 
         function addMixtureComponent(opts = {}) {
             mixtureComponentCount++;
@@ -729,21 +861,27 @@
             div.dataset.componentId = id;
 
             const canRemove = ui.mixtureContainer.children.length > 0;
+            const componentIndex = ui.mixtureContainer.children.length + 1;
 
+            div.setAttribute('role', 'group');
+            div.setAttribute('aria-label', `Analytkomponente ${componentIndex}`);
             div.innerHTML = `
-                ${canRemove ? `<button class="remove-btn" title="Komponente entfernen" data-remove="${id}">×</button>` : ''}
+                ${canRemove ? `<button type="button" class="remove-btn" aria-label="Komponente entfernen" data-remove="${id}"><span aria-hidden="true">×</span></button>` : ''}
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.25rem;">
                     <div>
-                        <label>Symbol</label>
-                        <input type="text" class="comp-symbol" value="${symbol}" maxlength="5" data-id="${id}">
+                        <label for="comp-symbol-${id}">Symbol</label>
+                        <input type="text" id="comp-symbol-${id}" class="comp-symbol" value="${symbol}" maxlength="5" data-id="${id}">
                     </div>
                     <div>
-                        <label>Konz. (mol/L)</label>
-                        <input type="number" class="comp-conc" value="${conc}" step="0.01" min="1e-6" data-id="${id}">
+                        <label for="comp-conc-${id}">Konz. (mol/L)</label>
+                        <input type="number" id="comp-conc-${id}" class="comp-conc" value="${conc}" step="0.01" min="1e-6" data-id="${id}">
                     </div>
                 </div>
-                <label>Wertigkeit</label>
-                <input type="number" class="comp-n" value="${n}" min="1" max="5" step="1" data-id="${id}">
+                <label for="comp-n-${id}">Wertigkeit</label>
+                <input type="number" id="comp-n-${id}" class="comp-n" value="${n}" min="1" max="5" step="1" data-id="${id}">
+                ${!isAcid ? `
+                <label for="comp-charge-${id}" style="font-size:0.85em;" title="Ladung z der vollständig deprotonierten Form L. 0 = neutrale Base/Amin (NH₃→NH₄⁺); −2 = Carbonat (CO₃²⁻); −3 = Phosphat (PO₄³⁻). Beeinflusst nur die Speziesbeschriftung, nicht die Kurve.">Ladung z (voll deprotoniert)</label>
+                <input type="number" id="comp-charge-${id}" class="comp-charge" value="${opts.charge != null ? opts.charge : 0}" step="1" data-id="${id}">` : ''}
                 <div class="comp-pkas" data-id="${id}"></div>
             `;
 
@@ -760,7 +898,7 @@
                 updateComponentPkas(div, newN, newDefaults);
                 runFullSimulation();
             });
-            div.querySelectorAll('.comp-symbol, .comp-conc').forEach(el => el.addEventListener('input', runFullSimulation));
+            div.querySelectorAll('.comp-symbol, .comp-conc, .comp-charge').forEach(el => el.addEventListener('input', runSimDebounced));
             if (canRemove) {
                 div.querySelector('.remove-btn').addEventListener('click', () => {
                     div.remove();
@@ -771,17 +909,21 @@
 
         function updateComponentPkas(div, n, defaults) {
             const container = div.querySelector('.comp-pkas');
+            const cid = div.dataset.componentId;
             container.innerHTML = '';
             for (let i = 0; i < n; i++) {
+                const inputId = `comp-pka-${cid}-${i}`;
                 const label = document.createElement('label');
                 label.innerHTML = `pK<sub>a</sub> ${i + 1}`;
                 label.style.fontSize = '0.85em';
+                label.setAttribute('for', inputId);
                 const input = document.createElement('input');
                 input.type = 'number';
+                input.id = inputId;
                 input.className = 'comp-pka-input';
                 input.step = 0.01;
                 input.value = defaults[i] !== undefined ? defaults[i] : 7.0;
-                input.addEventListener('input', runFullSimulation);
+                input.addEventListener('input', runSimDebounced);
                 container.appendChild(label);
                 container.appendChild(input);
                 const error = document.createElement('small');
@@ -793,10 +935,15 @@
         function clearSimulationNotice() {
             ui.simulationNotice.style.display = 'none';
             ui.simulationNotice.textContent = '';
+            ui.simulationNotice.classList.remove('info', 'warn', 'error');
         }
 
-        function showSimulationNotice(message) {
+        // level: 'info' (neutral hint), 'warn' (recoverable), 'error' (simulation stopped)
+        function showSimulationNotice(message, level = 'error') {
             ui.simulationNotice.textContent = message;
+            ui.simulationNotice.classList.remove('info', 'warn', 'error');
+            ui.simulationNotice.classList.add(level);
+            ui.simulationNotice.setAttribute('aria-live', level === 'error' ? 'assertive' : 'polite');
             ui.simulationNotice.style.display = 'block';
         }
 
@@ -836,8 +983,18 @@
             let anyPkaReordered = false;
             componentDivs.forEach((div, compIdx) => {
                 const symbol = div.querySelector('.comp-symbol').value || 'X';
-                const concentration = parseFloat(div.querySelector('.comp-conc').value) || 0.1;
+                const concInput = div.querySelector('.comp-conc');
+                const concentration = parseFloat(concInput.value);
+                if (!Number.isFinite(concentration) || concentration <= 0) {
+                    const msg = `Komponente ${compIdx + 1}: Konzentration muss eine Zahl > 0 sein.`;
+                    setComponentFieldError(concInput, msg);
+                    validationErrors.push(msg);
+                } else {
+                    setComponentFieldError(concInput, '');
+                }
                 const n = parseInt(div.querySelector('.comp-n').value) || 1;
+                const chargeEl = div.querySelector('.comp-charge');
+                const charge_L = chargeEl ? (parseInt(chargeEl.value) || 0) : 0;
                 const pkaInputs = div.querySelectorAll('.comp-pka-input');
                 const pkas = [];
                 pkaInputs.forEach((inp, pkaIdx) => {
@@ -856,25 +1013,36 @@
                 if (pkas.some((v, i) => v !== unsortedPkas[i])) {
                     anyPkaReordered = true;
                 }
-                components.push({ symbol, concentration, n_protons: pkas.length, pkas, is_acid: isAcid });
+                components.push({ symbol, concentration, n_protons: pkas.length, pkas, is_acid: isAcid, charge_L });
             });
+
+            // Global (non-component) input validation — reject 0 / empty / negative / NaN
+            // instead of silently producing Infinity/NaN plot ranges.
+            const cTitrant = parseFloat(ui.cTitrant.value);
+            const vAnalyteMl = parseFloat(ui.vAnalyte.value);
+            const pkl = parseFloat(ui.pksSlider.value);
+            const pkasTitrant = parseFloat(ui.pkasTitrant.value);
+            if (!Number.isFinite(cTitrant) || cTitrant <= 0) validationErrors.push('Titrant-Konzentration muss eine Zahl > 0 sein.');
+            if (!Number.isFinite(vAnalyteMl) || vAnalyteMl <= 0) validationErrors.push('Analytvolumen muss eine Zahl > 0 sein.');
+            if (!Number.isFinite(pkl) || pkl <= 0) validationErrors.push('pKL (Lösungsmittel-Autoprotolyse) muss eine Zahl > 0 sein.');
+            if (!Number.isFinite(pkasTitrant)) validationErrors.push('pKs der korrespondierenden Säure des Titranten ist ungültig.');
 
             if (validationErrors.length > 0 || components.some(comp => comp.pkas.length === 0)) {
                 return { valid: false, validationErrors, components, analyte_is_acid: isAcid };
             }
 
             if (anyPkaReordered) {
-                showSimulationNotice('Hinweis: pKₐ-Werte wurden in aufsteigender Reihenfolge sortiert.');
+                showSimulationNotice('Hinweis: pKₐ-Werte wurden in aufsteigender Reihenfolge sortiert.', 'info');
             }
 
             return {
                 valid: true,
                 analyte_is_acid: isAcid,
-                pks: parseFloat(ui.pksSlider.value),
-                v_analyte: parseFloat(ui.vAnalyte.value) / 1000.0,
+                pks: pkl,
+                v_analyte: vAnalyteMl / 1000.0,
                 components: components,
-                c_titrant: parseFloat(ui.cTitrant.value),
-                pkas_titrant: [parseFloat(ui.pkasTitrant.value)],
+                c_titrant: cTitrant,
+                pkas_titrant: [pkasTitrant],
                 co2_concentration: parseFloat(ui.co2Concentration.value) || 0,
             };
         }
@@ -883,7 +1051,10 @@
             clearSimulationNotice();
             const params = getParams();
             if (!params.valid) {
-                if (params.validationErrors && params.validationErrors.length > 0) {
+                const errs = params.validationErrors || [];
+                if (errs.length > 0) {
+                    showSimulationNotice('Simulation gestoppt: ' + errs.join(' '));
+                } else {
                     showSimulationNotice('Simulation gestoppt: Mindestens eine Komponente hat keine gültige Dissoziationskonstante (pKₐ).');
                 }
                 return;
@@ -921,8 +1092,9 @@
                 }
 
                 // Species labels for this component
+                const chargeOfL = comp.is_acid ? -n_k : (comp.charge_L || 0);
                 const labels = Array.from({length: n_k + 1}, (_, i) =>
-                    formatSpeciesLabelPlain(comp.symbol, n_k, n_k - i, comp.is_acid));
+                    formatSpeciesLabelPlain(comp.symbol, chargeOfL, n_k - i));
                 all_species_labels.push(labels);
 
                 // Species concentrations
@@ -945,17 +1117,18 @@
 
             // For Φ calculation: Φ = C·V / (total moles titratable)
             const phiIsValid = Number.isFinite(total_moles_titratable) && total_moles_titratable > 0;
+            // null (not volumes_ml) when Φ is undefined, so a future unguarded read fails
+            // loudly instead of silently plotting mL magnitudes as Φ.
             const phi_values = phiIsValid
                 ? titration.volumes.map(v => (params.c_titrant * v) / total_moles_titratable)
-                : volumes_ml;
+                : null;
 
             if (!phiIsValid) {
                 if (ui.xAxisMode.value === 'phi') ui.xAxisMode.value = 'volume';
-                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar');
+                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar', 'warn');
             }
 
             // For backward compatibility with single-component code
-            const n_protons = params.components[0].pkas.length;
             const species_labels = all_species_labels[0] || [];
             const species_concentrations = all_species_concentrations[0] || [];
 
@@ -963,7 +1136,7 @@
             const inflection_points = findInflectionPoints(volumes_ml, titration.phs);
 
             currentSimulationData = {
-                titration, params, volumes_ml, n_protons, plot_end_volume_ml,
+                titration, params, volumes_ml, plot_end_volume_ml,
                 eq_vols_l, half_eq_vols_l, half_eq_pkas, species_labels, species_concentrations,
                 all_species_labels, all_species_concentrations, phi_values,
                 total_moles_titratable, inflection_points, phiIsValid
@@ -1024,7 +1197,7 @@
             const usePhiAxis = wantsPhiAxis && phiIsValid;
 
             if (wantsPhiAxis && !phiIsValid) {
-                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar');
+                showSimulationNotice('Keine titrierbaren Äquivalente aus den aktuellen Eingaben ableitbar', 'warn');
             }
 
             // x values: either volumes in mL or Φ
@@ -1065,27 +1238,46 @@
                         fillcolor: grad[i], opacity: 0.3, layer: 'below', line: { width: 0 }
                     });
                 }
+                // Non-colour cue for the transition band (WCAG 1.4.1): dashed boundary lines + label
+                [info.range[0], info.range[1]].forEach(phv => {
+                    layout.shapes.push({
+                        type: 'line', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: phv, y1: phv,
+                        line: { color: 'rgba(205,215,225,0.55)', width: 1, dash: 'dot' }
+                    });
+                });
+                layout.annotations.push({
+                    xref: 'paper', x: 0.012, y: (info.range[0] + info.range[1]) / 2, xanchor: 'left',
+                    text: `Umschlag ${getAxisLabel(params.pks)} ${info.range[0].toFixed(1)}–${info.range[1].toFixed(1)}`,
+                    showarrow: false, font: { size: 10, color: '#d3dde6' }, bgcolor: 'rgba(0,0,0,0.45)', borderpad: 2
+                });
 
+                const rangeCard = `<div><h3>Umschlagsbereich</h3><p>${info.range[0].toFixed(1)}–${info.range[1].toFixed(1)}</p></div>`;
                 if (titration.phs.length > 1) {
                     const indicator_midpoint_ph = (info.range[0] + info.range[1]) / 2;
-                    let endpoint_vol = 0;
+                    let endpoint_vol = null;
                     for (let i=0; i<titration.phs.length-1; i++) {
                         if ((titration.phs[i] <= indicator_midpoint_ph && titration.phs[i+1] >= indicator_midpoint_ph) || (titration.phs[i] >= indicator_midpoint_ph && titration.phs[i+1] <= indicator_midpoint_ph)) {
                             endpoint_vol = volumes_ml[i] + (volumes_ml[i+1]-volumes_ml[i]) * (indicator_midpoint_ph - titration.phs[i]) / (titration.phs[i+1] - titration.phs[i]);
                             break;
                         }
                     }
-                    const target_eq_idx = parseInt(ui.targetEqIdxSelect.value || '1') - 1;
-                    const target_vol = eq_vols_l[target_eq_idx] * 1000;
-                    const error = endpoint_vol - target_vol;
-                    const rel_error = target_vol > 0 ? (error / target_vol) * 100 : 0;
-
                     indicatorMetricsDiv.style.display = 'grid';
-                    indicatorMetricsDiv.innerHTML = `
-                        <div><h3>Endpunktvolumen (pH ${indicator_midpoint_ph.toFixed(2)})</h3><p>${endpoint_vol.toFixed(3)} mL</p></div>
-                        <div><h3>Indikatorfehler vs. ÄP ${target_eq_idx+1}</h3><p>${error.toFixed(3)} mL</p></div>
-                        <div><h3>Relativer Fehler</h3><p>${rel_error.toFixed(2)} %</p></div>
-                    `;
+                    if (endpoint_vol === null) {
+                        // The indicator's transition pH lies outside the curve's pH range
+                        // (e.g. an acidic-range indicator on a weak-acid/strong-base titration).
+                        indicatorMetricsDiv.innerHTML = rangeCard + `
+                            <div style="grid-column:1/-1;"><h3>Umschlagspunkt (pH ${indicator_midpoint_ph.toFixed(2)})</h3><p style="font-size:1rem;">im erreichbaren ${getAxisLabel(params.pks)}-Bereich nicht erreicht — bitte einen passenderen Indikator wählen.</p></div>`;
+                    } else {
+                        const target_eq_idx = parseInt(ui.targetEqIdxSelect.value || '1') - 1;
+                        const target_vol = eq_vols_l[target_eq_idx] * 1000;
+                        const error = endpoint_vol - target_vol;
+                        const rel_error = target_vol > 0 ? (error / target_vol) * 100 : 0;
+                        indicatorMetricsDiv.innerHTML = rangeCard + `
+                            <div><h3>Endpunktvolumen (pH ${indicator_midpoint_ph.toFixed(2)})</h3><p>${endpoint_vol.toFixed(3)} mL</p></div>
+                            <div><h3>Indikatorfehler vs. ÄP ${target_eq_idx+1}</h3><p>${error.toFixed(3)} mL</p></div>
+                            <div><h3>Relativer Fehler</h3><p>${rel_error.toFixed(2)} %</p></div>
+                        `;
+                    }
                 }
             } else {
                  indicatorMetricsDiv.style.display = 'none';
@@ -1138,7 +1330,18 @@
                 });
             }
 
-            computeEquivalenceMassTable(params, eq_vols_l, volumes_ml, titration.phs);
+            // Frozen comparison curves (G8): grey/earth dashed, plotted in the current x-mode.
+            const frozenColors = ['#8a97a5', '#c08457', '#6b9e78', '#9a83c0'];
+            frozenCurves.forEach((fc, k) => {
+                const fx = usePhiAxis ? (fc.phi_values || fc.volumes_ml) : fc.volumes_ml;
+                data.push({
+                    x: fx, y: fc.phs, mode: 'lines', name: `fixiert: ${fc.label}`,
+                    line: { color: frozenColors[k % frozenColors.length], width: 1.5, dash: 'dash' },
+                    opacity: 0.85, hoverinfo: 'skip'
+                });
+            });
+
+            computeEquivalenceMassTable(params, eq_vols_l, volumes_ml, titration.phs, half_eq_pkas);
 
             const isAcid = params.analyte_is_acid;
             const yLevels = [0.85, 0.70, 0.55, 0.40, 0.25];
@@ -1171,7 +1374,7 @@
                 });
             });
 
-            Plotly.newPlot('plot-main', data, layout, {responsive: true});
+            drawPlot('plot-main', data, layout, {responsive: true});
             attachCSVExport('plot-main', () => {
                 const { titration, params, volumes_ml, species_labels } = currentSimulationData;
                 if (!titration) return { rows: [], filename: 'titration_curve.csv' };
@@ -1190,7 +1393,45 @@
             });
         }
 
-        function computeEquivalenceMassTable(params, eq_vols_l, volumes_ml, phs) {
+        // Rule-of-thumb titratability (Ehlers): an acid step is directly (visually) titratable
+        // when it is far enough from the solvent limit; a base step by the strength of its
+        // conjugate acid. "strength" = pKL − pKa (acid) or pKa_conj (base).
+        function titratabilityBadge(pka, isAcid, pKL) {
+            if (pka === undefined || !isFinite(pka)) return null;
+            const strength = isAcid ? (pKL - pka) : pka;
+            if (strength >= 7) return { txt: 'gut titrierbar', color: '#4ade80' };
+            if (strength >= 4) return { txt: 'nur potentiometrisch', color: '#f5a524' };
+            return { txt: 'nicht direkt titrierbar', color: '#f06a86' };
+        }
+
+        // Interpolate the titrant volume at a target pH (inverse of interpolatePH).
+        function interpolateVatPH(volumes_ml, phs, targetPh) {
+            for (let i = 0; i < phs.length - 1; i++) {
+                const a = phs[i], b = phs[i + 1];
+                if ((a <= targetPh && b >= targetPh) || (a >= targetPh && b <= targetPh)) {
+                    const frac = (b - a) !== 0 ? (targetPh - a) / (b - a) : 0;
+                    return volumes_ml[i] + frac * (volumes_ml[i + 1] - volumes_ml[i]);
+                }
+            }
+            return null;
+        }
+
+        // Best visual indicator for an ÄP: the one whose transition midpoint gives the smallest
+        // |endpoint − ÄP| VOLUME error (not merely the closest midpoint pH).
+        function recommendIndicator(eqVol_ml, volumes_ml, phs) {
+            let best = null;
+            for (const name in INDICATOR_DATA) {
+                if (name === 'Indikator auswählen') continue;
+                const r = INDICATOR_DATA[name].range;
+                const vEnd = interpolateVatPH(volumes_ml, phs, (r[0] + r[1]) / 2);
+                if (vEnd === null) continue;
+                const err = Math.abs(vEnd - eqVol_ml);
+                if (!best || err < best.err) best = { name, err };
+            }
+            return best;
+        }
+
+        function computeEquivalenceMassTable(params, eq_vols_l, volumes_ml, phs, half_eq_pkas) {
             const totalEq = eq_vols_l.length;
             const totalVol = eq_vols_l.length > 0 ? eq_vols_l[eq_vols_l.length-1]*1000 : 0;
             const nComp = params.components.length;
@@ -1200,9 +1441,15 @@
                 <div><h3>Komponenten</h3><p>${nComp}</p></div>
                 <div><h3>Gesamt-ÄP-Volumen</h3><p>${totalVol.toFixed(2)} mL</p></div>`;
             eq_vols_l.forEach((v, i) => {
-                const ph = interpolatePH(volumes_ml, phs, v * 1000);
+                const vMl = v * 1000;
+                const ph = interpolatePH(volumes_ml, phs, vMl);
                 const phStr = ph !== null ? ph.toFixed(2) : '—';
-                html += `<div><h3>ÄP ${i+1} — ${getAxisLabel(params.pks)}</h3><p>${phStr}</p></div>`;
+                const badge = titratabilityBadge(half_eq_pkas ? half_eq_pkas[i] : undefined, params.analyte_is_acid, params.pks);
+                const badgeHtml = badge ? `<div style="font-size:0.7rem; font-weight:600; color:${badge.color}; margin-top:0.3rem;">${badge.txt}</div>` : '';
+                const rec = recommendIndicator(vMl, volumes_ml, phs);
+                const recHtml = (rec && rec.err < Math.max(vMl * 0.03, 1.5))
+                    ? `<div style="font-size:0.7rem; color:var(--pico-muted-color); margin-top:0.1rem;">Indikator: ${rec.name}</div>` : '';
+                html += `<div><h3>ÄP ${i+1} — ${getAxisLabel(params.pks)}</h3><p>${phStr}</p>${badgeHtml}${recHtml}</div>`;
             });
             tableDiv.innerHTML = html;
         }
@@ -1238,11 +1485,11 @@
                 showlegend: false
             };
 
-            Plotly.newPlot('plot-derivatives', [trace1, trace2], layout, {responsive: true});
+            drawPlot('plot-derivatives', [trace1, trace2], layout, {responsive: true});
         }
 
         function plotGranFunction() {
-            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l } = currentSimulationData;
+            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, half_eq_pkas } = currentSimulationData;
             if (!titration || volumes_ml.length < 4 || eq_vols_l.length === 0) {
                 Plotly.purge('plot-gran');
                 document.getElementById('plot-gran').innerHTML = '<p>Nicht genügend Daten für Gran-Plot.</p>';
@@ -1257,67 +1504,54 @@
             const shapes = [];
             const annotations = [];
 
+            const lastEqIdx = eq_vols_l.length - 1;
+
             eq_vols_l.forEach((eq_v_l, eqIdx) => {
                 const Veq = eq_v_l * 1000;
                 const prevVeq = eqIdx > 0 ? eq_vols_l[eqIdx - 1] * 1000 : 0;
-                const nextVeq = eqIdx < eq_vols_l.length - 1 ? eq_vols_l[eqIdx + 1] * 1000 : plot_end_volume_ml;
+                const nextVeq = eqIdx < lastEqIdx ? eq_vols_l[eqIdx + 1] * 1000 : plot_end_volume_ml;
                 const color = colors[eqIdx % colors.length];
+                const isFinal = eqIdx === lastEqIdx;
 
-                // Window: use 35% of surrounding segment on each side
-                const windowBefore = Math.max((Veq - prevVeq) * 0.35, 1.0);
-                const windowAfter = Math.max((nextVeq - Veq) * 0.35, 1.0);
+                // Is the proton step ending at this ÄP effectively strong (buffer collapses)?
+                // Strong acid step: pKa < 0.5; strong base step: pKa(konj.) > pKL − 0.5.
+                const pkaStep = half_eq_pkas ? half_eq_pkas[eqIdx] : undefined;
+                const strongStep = pkaStep === undefined ? false
+                    : (isAcidAnalyte ? pkaStep < 0.5 : pkaStep > pKL - 0.5);
+
+                // Windows: 35% of the neighbouring segment, clamped so they never reach an adjacent ÄP.
+                const segBefore = Veq - prevVeq;
+                const segAfter = nextVeq - Veq;
+                const windowBefore = Math.min(Math.max(segBefore * 0.35, 1.0), segBefore * 0.9);
+                const windowAfter = Math.min(Math.max(segAfter * 0.35, 1.0), segAfter * 0.9);
+
+                // Pre-ÄP Gran function (linear in V, zero at Veq):
+                //   weak buffer step: (V − prevVeq)·10^(∓pH)   |   strong step: (V0+V)·10^(∓pH)
+                // (the (V0+V) factor cancels in the buffer region, so it must NOT be used there.)
+                const granBefore = (idx) => {
+                    const v = volumes_ml[idx], ph = titration.phs[idx];
+                    const f = strongStep ? (V0_ml + v) : (v - prevVeq);
+                    return f * (isAcidAnalyte ? Math.pow(10, -ph) : Math.pow(10, ph - pKL));
+                };
 
                 const beforeIdx = volumes_ml.reduce((acc, v, i) => {
                     if (v >= Veq - windowBefore && v < Veq) acc.push(i);
                     return acc;
                 }, []);
-                const afterIdx = volumes_ml.reduce((acc, v, i) => {
-                    if (v > Veq && v <= Veq + windowAfter) acc.push(i);
-                    return acc;
-                }, []);
-
-                // Gran functions:
-                // isAcidAnalyte (base titrant → acid): G1 = (V0+V)*10^(-pH), G2 = (V0+V)*10^(pH-pKL)
-                // !isAcidAnalyte (acid titrant → base): G1 = (V0+V)*10^(pH-pKL), G2 = (V0+V)*10^(-pH)
-                const granG = (idx, isBefore) => {
-                    const v = volumes_ml[idx];
-                    const ph = titration.phs[idx];
-                    const f = V0_ml + v;
-                    if (isAcidAnalyte) {
-                        return isBefore ? f * Math.pow(10, -ph) : f * Math.pow(10, ph - pKL);
-                    } else {
-                        return isBefore ? f * Math.pow(10, ph - pKL) : f * Math.pow(10, -ph);
-                    }
-                };
-
                 const g1x = beforeIdx.map(i => volumes_ml[i]);
-                const g1y = beforeIdx.map(i => granG(i, true));
-                const g2x = afterIdx.map(i => volumes_ml[i]);
-                const g2y = afterIdx.map(i => granG(i, false));
+                const g1y = beforeIdx.map(i => granBefore(i));
 
-                // Traces for data points
                 if (g1x.length > 0) {
                     data.push({
                         x: g1x, y: g1y, mode: 'markers', name: `G₁ (vor ÄP ${eqIdx+1})`,
                         marker: { color, size: 5 }, legendgroup: `ep${eqIdx}`
                     });
                 }
-                if (g2x.length > 0) {
-                    data.push({
-                        x: g2x, y: g2y, mode: 'markers', name: `G₂ (nach ÄP ${eqIdx+1})`,
-                        marker: { color, size: 5, symbol: 'diamond' }, legendgroup: `ep${eqIdx}`
-                    });
-                }
-
-                // Linear regression + extrapolation lines
                 const reg1 = linReg(g1x, g1y);
-                const reg2 = linReg(g2x, g2y);
-
                 if (reg1 && reg1.zero !== null && isFinite(reg1.zero) && reg1.zero > 0 && reg1.zero < plot_end_volume_ml) {
                     const xA = Math.max(0, g1x[0] - windowBefore * 0.5);
-                    const xB = reg1.zero;
                     data.push({
-                        x: [xA, xB], y: [reg1.m*xA+reg1.b, 0],
+                        x: [xA, reg1.zero], y: [reg1.m*xA+reg1.b, 0],
                         mode: 'lines', line: { color, dash: 'dot', width: 1.5 },
                         name: `Extrap. G₁(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
                     });
@@ -1327,19 +1561,41 @@
                         font: { size: 10, color }, bgcolor: 'rgba(0,0,0,0.5)', borderpad: 2
                     });
                 }
-                if (reg2 && reg2.zero !== null && isFinite(reg2.zero) && reg2.zero > 0 && reg2.zero < plot_end_volume_ml) {
-                    const xA = reg2.zero;
-                    const xB = g2x[g2x.length-1] + windowAfter * 0.5;
-                    data.push({
-                        x: [xA, xB], y: [0, reg2.m*xB+reg2.b],
-                        mode: 'lines', line: { color, dash: 'dash', width: 1.5 },
-                        name: `Extrap. G₂(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
-                    });
-                    annotations.push({
-                        x: reg2.zero, y: 0, text: `ÄP ${eqIdx+1}<br>${reg2.zero.toFixed(2)} mL`,
-                        showarrow: true, arrowhead: 2, ax: 0, ay: -30,
-                        font: { size: 10, color }, bgcolor: 'rgba(0,0,0,0.5)', borderpad: 2
-                    });
+
+                // Post-ÄP Gran function (V0+V)·10^(±pH−pKL) is rigorous ONLY in the excess-titrant
+                // region after the FINAL ÄP. Between two ÄPs the curve is another buffer, where this
+                // form is not linear, so G₂ is drawn only for the last ÄP.
+                if (isFinal) {
+                    const afterIdx = volumes_ml.reduce((acc, v, i) => {
+                        if (v > Veq && v <= Veq + windowAfter) acc.push(i);
+                        return acc;
+                    }, []);
+                    const granAfter = (idx) => {
+                        const v = volumes_ml[idx], ph = titration.phs[idx], f = V0_ml + v;
+                        return isAcidAnalyte ? f * Math.pow(10, ph - pKL) : f * Math.pow(10, -ph);
+                    };
+                    const g2x = afterIdx.map(i => volumes_ml[i]);
+                    const g2y = afterIdx.map(i => granAfter(i));
+                    if (g2x.length > 0) {
+                        data.push({
+                            x: g2x, y: g2y, mode: 'markers', name: `G₂ (nach ÄP ${eqIdx+1})`,
+                            marker: { color, size: 5, symbol: 'diamond' }, legendgroup: `ep${eqIdx}`
+                        });
+                    }
+                    const reg2 = linReg(g2x, g2y);
+                    if (reg2 && reg2.zero !== null && isFinite(reg2.zero) && reg2.zero > 0 && reg2.zero < plot_end_volume_ml) {
+                        const xB = g2x[g2x.length-1] + windowAfter * 0.5;
+                        data.push({
+                            x: [reg2.zero, xB], y: [0, reg2.m*xB+reg2.b],
+                            mode: 'lines', line: { color, dash: 'dash', width: 1.5 },
+                            name: `Extrap. G₂(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
+                        });
+                        annotations.push({
+                            x: reg2.zero, y: 0, text: `ÄP ${eqIdx+1}<br>${reg2.zero.toFixed(2)} mL`,
+                            showarrow: true, arrowhead: 2, ax: 0, ay: -30,
+                            font: { size: 10, color }, bgcolor: 'rgba(0,0,0,0.5)', borderpad: 2
+                        });
+                    }
                 }
 
                 // Vertical line at known EP
@@ -1351,10 +1607,10 @@
             });
 
             const gLabel = isAcidAnalyte
-                ? 'G₁=(V₀+V)·10⁻ᵖᴴ / G₂=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ'
-                : 'G₁=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ / G₂=(V₀+V)·10⁻ᵖᴴ';
+                ? 'G₁=(V−Vₚ)·10⁻ᵖᴴ (Puffer) · G₂=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ (Überschuss)'
+                : 'G₁=(V−Vₚ)·10ᵖᴴ⁻ᵖᴷᴸ (Puffer) · G₂=(V₀+V)·10⁻ᵖᴴ (Überschuss)';
 
-            Plotly.newPlot('plot-gran', data, {
+            drawPlot('plot-gran', data, {
                 title: `Gran-Plot — ${gLabel}`,
                 xaxis: { title: 'Volumen zugegebener Maßlösung (mL)', range: [0, plot_end_volume_ml] },
                 yaxis: { title: 'Gran-Funktion G(V)' },
@@ -1402,7 +1658,7 @@
                     template: 'plotly_dark',
                     hovermode: 'x unified'
                 };
-                Plotly.newPlot('plot-species', data, layout, {responsive: true});
+                drawPlot('plot-species', data, layout, {responsive: true});
                 return;
             }
 
@@ -1440,11 +1696,11 @@
                 hovermode: 'x unified'
             };
 
-            Plotly.newPlot('plot-species', data, layout, {responsive: true});
+            drawPlot('plot-species', data, layout, {responsive: true});
         }
 
         function plotBufferCapacity() {
-            const { titration, params } = currentSimulationData;
+            const { titration, params, plot_end_volume_ml } = currentSimulationData;
             if (!titration || titration.phs.length < 4) {
                 document.getElementById('plot-buffer').innerHTML = '<p>Zu wenige Daten für β-Berechnung.</p>';
                 return;
@@ -1453,45 +1709,58 @@
             const displayMode = ui.bufferDisplayMode?.value || 'dual';
             const yScale = ui.bufferYScale?.value || 'linear';
 
-            // Static buffer capacity β = |dΔ/dpH| ≈ |1/(dV/dpH)| (Eq. [79])
+            // Static Van Slyke buffer capacity β = dC_b/dpH ≈ (c_titrant/V₀)·|dV/dpH|
+            // (mol·L⁻¹·pH⁻¹). Maximal at pH = pKₐ (half-neutralisation), minimal at the
+            // equivalence point — do NOT use the reciprocal |dpH/dV| (that is the curve slope).
             const dv_dph = numGradient(titration.volumes, titration.phs);
+            const betaStaticScale = params.c_titrant / params.v_analyte;
             const beta_static = dv_dph.map(v =>
-                (v === 0 || !isFinite(v)) ? null : Math.abs(1 / v)
+                (!isFinite(v)) ? null : Math.abs(v) * betaStaticScale
             );
 
             // Dynamic buffer capacity βV = |dc/dpH| (Eq. [93-97])
             // c = C·V / (V₀+V) is the current concentration of titrant in the mixture
             const c_values = titration.volumes.map(v => (params.c_titrant * v) / (params.v_analyte + v));
             const dc_dph = numGradient(c_values, titration.phs);
-            const beta_dynamic = dc_dph.map(v => Math.abs(v));
+            const beta_dynamic = dc_dph.map(v => isFinite(v) ? Math.abs(v) : null);
 
-            const maxStatic = Math.max(...beta_static.filter(v => v !== null), Number.EPSILON);
-            const maxDynamic = Math.max(...beta_dynamic, Number.EPSILON);
+            // Restrict the buffer plot to the titration region of interest (V ≤ plot_end). The
+            // far excess-titrant tail (V→∞ as pH→pKL) has an enormous |dV/dpH| that would both
+            // dominate the y-axis auto-scale (hiding the analyte pKₐ peaks) and skew normalization.
+            const visLimit = (plot_end_volume_ml || Infinity) / 1000;
+            const idxVis = [];
+            for (let i = 0; i < titration.volumes.length; i++) if (titration.volumes[i] <= visLimit) idxVis.push(i);
+            const phsVis = idxVis.map(i => titration.phs[i]);
+            const betaStaticVis = idxVis.map(i => beta_static[i]);
+            const betaDynamicVis = idxVis.map(i => beta_dynamic[i]);
+
+            const maxStatic = Math.max(...betaStaticVis.filter(v => v !== null && isFinite(v)), Number.EPSILON);
+            const maxDynamic = Math.max(...betaDynamicVis.filter(v => v !== null && isFinite(v)), Number.EPSILON);
             const isNormalized = displayMode === 'normalized';
 
-            const betaStaticY = isNormalized ? beta_static.map(v => v === null ? null : v / maxStatic) : beta_static;
-            const betaDynamicY = isNormalized ? beta_dynamic.map(v => v / maxDynamic) : beta_dynamic;
+            const betaStaticY = isNormalized ? betaStaticVis.map(v => v === null ? null : v / maxStatic) : betaStaticVis;
+            const betaDynamicY = isNormalized ? betaDynamicVis.map(v => v === null ? null : v / maxDynamic) : betaDynamicVis;
 
             const trace1 = {
-                x: titration.phs,
+                x: phsVis,
                 y: betaStaticY,
                 mode: 'lines',
-                line: { color: 'lime', width: 2 },
+                line: { color: '#4ade80', width: 2 },
                 name: isNormalized ? 'β/βmax (statisch)' : 'β (statisch)',
                 yaxis: 'y'
             };
             const trace2 = {
-                x: titration.phs,
+                x: phsVis,
                 y: betaDynamicY,
                 mode: 'lines',
-                line: { color: 'cyan', width: 2, dash: 'dash' },
+                line: { color: '#38d0ee', width: 2, dash: 'dash' },
                 name: isNormalized ? 'βV/βVmax (dynamisch)' : 'βV (dynamisch)',
                 yaxis: isNormalized ? 'y' : 'y2'
             };
 
             const yAxisTitle = isNormalized
                 ? 'Normierte Pufferkapazität (–)'
-                : 'β statisch |dΔ/dpH| (L·mol⁻¹·pH⁻¹)';
+                : 'β statisch (Van Slyke) = dC_b/dpH (mol·L⁻¹·pH⁻¹)';
 
             const pkaShapes = [];
             const pkaAnnotations = [];
@@ -1514,11 +1783,16 @@
                 });
             });
 
+            const phLo = phsVis.length ? Math.min(...phsVis) : 0;
+            const phHi = phsVis.length ? Math.max(...phsVis) : params.pks;
+            const phPad = Math.max((phHi - phLo) * 0.03, 0.2);
+            const bufferXRange = [Math.max(0, phLo - phPad), Math.min(params.pks, phHi + phPad)];
+
             const layout = {
                 title: isNormalized
                     ? 'Pufferkapazität (normiert): β/βmax und βV/βVmax'
                     : 'Pufferkapazität: β (statisch) und βV (dynamisch, Gl. [93])',
-                xaxis: { title: getAxisLabel(params.pks), range: [0, params.pks] },
+                xaxis: { title: getAxisLabel(params.pks), range: bufferXRange },
                 yaxis: { title: yAxisTitle, type: yScale },
                 template: 'plotly_dark',
                 legend: { yanchor: 'top', y: 0.95, xanchor: 'right', x: 0.95 },
@@ -1536,14 +1810,15 @@
                 };
             }
 
-            Plotly.newPlot('plot-buffer', [trace1, trace2], layout, { responsive: true });
+            drawPlot('plot-buffer', [trace1, trace2], layout, { responsive: true });
             attachCSVExport('plot-buffer', () => {
                 const { titration, params } = currentSimulationData;
                 if (!titration) return { rows: [], filename: 'buffer_capacity.csv' };
                 const axLabel = getAxisLabel(params.pks);
-                const header = [axLabel, 'beta_static', 'beta_dynamic'];
+                const header = [axLabel, 'beta_static_molL-1pH-1', 'beta_dynamic_molL-1pH-1'];
                 const dv_dph2 = numGradient(titration.volumes, titration.phs);
-                const bs2 = dv_dph2.map(v => (v === 0 || !isFinite(v)) ? null : Math.abs(1 / v));
+                const bsScale2 = params.c_titrant / params.v_analyte;
+                const bs2 = dv_dph2.map(v => (!isFinite(v)) ? null : Math.abs(v) * bsScale2);
                 const c2 = titration.volumes.map(v => (params.c_titrant * v) / (params.v_analyte + v));
                 const dc2 = numGradient(c2, titration.phs);
                 const bd2 = dc2.map(v => isFinite(v) ? Math.abs(v) : null);
@@ -1617,7 +1892,7 @@
                 shapes: shapes,
                 legend: { yanchor: "top", y: 0.95, xanchor: "left", x: 0.05 }
             };
-            Plotly.newPlot('plot-inflection', data, layout, {responsive: true});
+            drawPlot('plot-inflection', data, layout, {responsive: true});
         }
         
         function runBackTitration() {
@@ -1637,6 +1912,20 @@
 
             const resultsDiv = document.getElementById('back-titration-results');
             const plotDiv = document.getElementById('plot-back-titration');
+
+            // Eingabevalidierung: alle Mengen müssen endliche Zahlen > 0 sein (stoich ganzzahlig ≥ 1);
+            // pKs darf negativ sein (starke Säure), muss aber endlich sein.
+            const positives = [analyte_mass_g, analyte_mm_gmol, v_dissolve_ml, c_r1, v_r1_ml, c_r2];
+            const invalid = positives.some(x => !Number.isFinite(x) || x <= 0)
+                || !Number.isFinite(stoich_ratio) || stoich_ratio < 1
+                || !Number.isFinite(pka_r2) || !Number.isFinite(pks) || pks <= 0;
+            if (invalid) {
+                resultsDiv.innerHTML = `<article role="alert" style="background-color: var(--pico-del-color);">
+                    <h4>⚠️ Ungültige Eingabe</h4>
+                    <p>Bitte für alle Felder positive Zahlenwerte eingeben (Stöchiometrie ganzzahlig ≥ 1, pKs endlich).</p></article>`;
+                Plotly.purge(plotDiv);
+                return;
+            }
 
             // Berechnungen
             const moles_analyte = analyte_mass_g / analyte_mm_gmol;
@@ -1685,7 +1974,7 @@
                     <div><h3>Ber. Analytmasse</h3><p>${(calc_mass_g * 1000).toFixed(2)} mg</p></div>
                     <div><h3>Probenreinheit</h3><p>${purity.toFixed(2)} %</p></div>
                 </div>
-                <div class="pico-card" role="alert" style="margin-top: 1rem;">💡 <b>Durchgezogene Linie:</b> Tatsächliche Titration des übrigen R1. <b>Gestrichelte Linie:</b> Referenztitration der gesamten Menge R1. Der horizontale Abstand der Äquivalenzpunkte entspricht dem Verbrauch durch den Analyten.</div>`;
+                <article role="note" style="margin-top: 1rem;"><span aria-hidden="true">💡</span> <b>Durchgezogene Linie:</b> Tatsächliche Titration des übrigen R1. <b>Gestrichelte Linie:</b> Referenztitration der gesamten Menge R1. Der horizontale Abstand der Äquivalenzpunkte entspricht dem Verbrauch durch den Analyten.</article>`;
 
             // Plot
             const trace_leftover = {
@@ -1716,27 +2005,45 @@
                 ]
             };
             
-            Plotly.newPlot(plotDiv, [trace_leftover, trace_total], layout, {responsive: true});
+            drawPlot(plotDiv, [trace_leftover, trace_total], layout, {responsive: true});
         }
 
         // --- Event-Listener und Initialisierung ---
+
+        // Debounce free-text typing so a full recompute+redraw doesn't fire on every keystroke
+        // (structural changes and <select>s stay immediate for snappy feedback).
+        function debounce(fn, ms) {
+            let timer;
+            return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+        }
+        const runSimDebounced = debounce(runFullSimulation, 160);
 
         // Tab-Umschaltung
         ui.tabButtons.forEach(button => {
             button.addEventListener('click', () => {
                 const targetTab = button.dataset.tab;
                 ui.tabContents.forEach(content => content.classList.remove('active'));
-                ui.tabButtons.forEach(btn => btn.classList.remove('active'));
+                ui.tabButtons.forEach(btn => { btn.classList.remove('active'); btn.removeAttribute('aria-current'); });
                 document.getElementById(targetTab).classList.add('active');
                 button.classList.add('active');
+                button.setAttribute('aria-current', 'true');
                 updateAllPlots();
             });
         });
 
         // Automatische Aktualisierung bei Parameteränderung
         [ui.vAnalyte, ui.cTitrant, ui.pkasTitrant, ui.co2Concentration].forEach(el => {
-            el.addEventListener('input', runFullSimulation);
+            el.addEventListener('input', runSimDebounced);
         });
+
+        // Presets (one-click canonical titrations)
+        document.getElementById('preset-select').addEventListener('change', (e) => {
+            if (e.target.value) applyPreset(e.target.value);
+        });
+
+        // Freeze / clear comparison curves (G8)
+        document.getElementById('freeze-curve-btn').addEventListener('click', freezeCurrentCurve);
+        document.getElementById('clear-frozen-btn').addEventListener('click', clearFrozenCurves);
         ui.analyteMode.addEventListener('change', (e) => {
             const isAcid = e.target.value === 'acid';
             ui.analyteLabels.forEach(l => l.textContent = isAcid ? "S\u00e4ure" : "Base");
@@ -1745,7 +2052,7 @@
             // Rebuild mixture components for new mode
             ui.mixtureContainer.innerHTML = '';
             mixtureComponentCount = 0;
-            addMixtureComponent({ n: 2, pkas: isAcid ? [2.15, 7.20] : [6.35, 10.33], symbol: isAcid ? 'A' : 'B' });
+            addMixtureComponent({ n: 2, pkas: DEFAULT_PKAS[isAcid ? 'acid' : 'base'][2], symbol: isAcid ? 'A' : 'B' });
             runFullSimulation();
         });
         function updateSolventUI() {
@@ -1784,7 +2091,7 @@
             } else {
                 ui.solventWarning.style.display = 'none';
             }
-            runFullSimulation();
+            runSimDebounced();
         });
         ui.xAxisMode.addEventListener('change', plotMainCurve);
 
@@ -1811,6 +2118,11 @@
         ui.bufferYScale?.addEventListener('change', plotBufferCapacity);
         ui.runBackTitrationBtn.addEventListener('click', runBackTitration);
 
+        // Tab 2 sub-view switch (Ableitungen / Gran) — bound here so the closure-scoped
+        // switchTab2 is reachable (inline onclick would run in global scope → ReferenceError).
+        document.getElementById('tab2-btn-derivatives').addEventListener('click', () => switchTab2('derivatives'));
+        document.getElementById('tab2-btn-gran').addEventListener('click', () => switchTab2('gran'));
+
         // Initialer Aufbau
         const indicatorOptions = Object.keys(INDICATOR_DATA)
             .filter(name => name !== "Indikator auswählen")
@@ -1829,7 +2141,7 @@
         });
 
         // Create initial mixture component
-        addMixtureComponent({ n: 2, pkas: [2.15, 7.20], symbol: 'A', concentration: 0.100 });
+        addMixtureComponent({ n: 2, pkas: DEFAULT_PKAS.acid[2], symbol: 'A', concentration: 0.100 });
         runFullSimulation();
         
         // MathJax für schöne Formeln laden und rendern

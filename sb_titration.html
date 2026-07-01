@@ -262,10 +262,12 @@
                     </div>
                     <div id="tab2-panel-gran" style="display:none;">
                         <p style="font-size:0.9em; color:var(--pico-muted-color);">
-                            Linearisierung der Titrationskurve (Gran 1952).
-                            G₁ = (V₀+V)·10<sup>−p[H]</sup> (vor ÄP) und
-                            G₂ = (V₀+V)·10<sup>p[H]−pK<sub>L</sub></sup> (nach ÄP)
-                            sind jeweils linear in V; die Nullstellen geben das Äquivalenzvolumen.
+                            Linearisierung der Titrationskurve (Gran 1952). Im Pufferbereich vor dem ÄP gilt
+                            G₁ = (V−V<sub>vorher</sub>)·10<sup>−p[H]</sup> (bzw. (V₀+V)·10<sup>−p[H]</sup> für starke Stufen),
+                            im Überschussbereich nach dem letzten ÄP G₂ = (V₀+V)·10<sup>p[H]−pK<sub>L</sub></sup>;
+                            beide sind linear in V, ihre Nullstellen geben das Äquivalenzvolumen.
+                            Bei mehrstufigen Titrationen markieren die Puffer-Geraden (G₁) jeden ÄP, die
+                            Überschuss-Gerade (G₂) nur den letzten (dazwischen ist G₂ nicht linear).
                         </p>
                         <div id="plot-gran" style="width:100%; height:430px;"></div>
                     </div>
@@ -337,7 +339,7 @@
                 </article>
                 <article id="tab5" class="tab-content">
                     <h3>Pufferkapazität: statisch (β) und dynamisch (β<sub>V</sub>)</h3>
-                    <p>Die <strong>statische</strong> Pufferkapazität β = dΔ/dpH (Van Slyke) beschreibt die Widerstandsfähigkeit gegen pH-Änderung bei konstanter Gesamtkonzentration. Die <strong>dynamische</strong> Pufferkapazität β<sub>V</sub> = dc/dpH (Michałowski, Gl. [93]) berücksichtigt den Verdünnungseffekt während der Titration. Daher ist β<sub>V</sub> explizit volumen- bzw. verdünnungsabhängig und darf nicht 1:1 mit der statischen β gleichgesetzt werden.</p>
+                    <p>Die <strong>statische</strong> Pufferkapazität β = dC<sub>b</sub>/dpH (Van Slyke) beschreibt die Widerstandsfähigkeit gegen pH-Änderung bei konstanter Gesamtkonzentration; sie hat ihr Maximum bei pH = pK<sub>a</sub> (Halbneutralisation) und ein Minimum am Äquivalenzpunkt. Die <strong>dynamische</strong> Pufferkapazität β<sub>V</sub> = dc/dpH (Michałowski, Gl. [93]) berücksichtigt den Verdünnungseffekt während der Titration; ihr Maximum liegt dadurch geringfügig <em>unterhalb</em> des pK<sub>a</sub>. β<sub>V</sub> ist explizit volumen- bzw. verdünnungsabhängig und darf nicht 1:1 mit der statischen β gleichgesetzt werden.</p>
                     <div class="grid-3-col" style="margin-bottom:1rem; align-items:end;">
                         <div>
                             <label for="buffer_display_mode">Darstellung</label>
@@ -604,7 +606,12 @@
 
             calculateCurve() {
                 const p = this.params;
-                const ph_points = linspace(-1, p.pks + 1, 3000);
+                // Widen the pH sweep for concentrated solutions so the V=0 start (and the
+                // excess-titrant tail) are not truncated: for a strong acid the initial pH
+                // is ≈ -log10(C), which can fall below -1 (e.g. ~12 M HCl → pH ≈ -1.08).
+                const maxConc = Math.max(p.c_titrant || 0, ...p.components.map(c => c.concentration || 0), 1e-9);
+                const margin = Math.max(0, Math.log10(maxConc)) + 1;
+                const ph_points = linspace(Math.min(-1, -margin), Math.max(p.pks + 1, p.pks + margin), 3000);
 
                 let v_ph_pairs = [];
 
@@ -1258,7 +1265,7 @@
         }
 
         function plotGranFunction() {
-            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l } = currentSimulationData;
+            const { titration, params, volumes_ml, plot_end_volume_ml, eq_vols_l, half_eq_pkas } = currentSimulationData;
             if (!titration || volumes_ml.length < 4 || eq_vols_l.length === 0) {
                 Plotly.purge('plot-gran');
                 document.getElementById('plot-gran').innerHTML = '<p>Nicht genügend Daten für Gran-Plot.</p>';
@@ -1273,67 +1280,54 @@
             const shapes = [];
             const annotations = [];
 
+            const lastEqIdx = eq_vols_l.length - 1;
+
             eq_vols_l.forEach((eq_v_l, eqIdx) => {
                 const Veq = eq_v_l * 1000;
                 const prevVeq = eqIdx > 0 ? eq_vols_l[eqIdx - 1] * 1000 : 0;
-                const nextVeq = eqIdx < eq_vols_l.length - 1 ? eq_vols_l[eqIdx + 1] * 1000 : plot_end_volume_ml;
+                const nextVeq = eqIdx < lastEqIdx ? eq_vols_l[eqIdx + 1] * 1000 : plot_end_volume_ml;
                 const color = colors[eqIdx % colors.length];
+                const isFinal = eqIdx === lastEqIdx;
 
-                // Window: use 35% of surrounding segment on each side
-                const windowBefore = Math.max((Veq - prevVeq) * 0.35, 1.0);
-                const windowAfter = Math.max((nextVeq - Veq) * 0.35, 1.0);
+                // Is the proton step ending at this ÄP effectively strong (buffer collapses)?
+                // Strong acid step: pKa < 0.5; strong base step: pKa(konj.) > pKL − 0.5.
+                const pkaStep = half_eq_pkas ? half_eq_pkas[eqIdx] : undefined;
+                const strongStep = pkaStep === undefined ? false
+                    : (isAcidAnalyte ? pkaStep < 0.5 : pkaStep > pKL - 0.5);
+
+                // Windows: 35% of the neighbouring segment, clamped so they never reach an adjacent ÄP.
+                const segBefore = Veq - prevVeq;
+                const segAfter = nextVeq - Veq;
+                const windowBefore = Math.min(Math.max(segBefore * 0.35, 1.0), segBefore * 0.9);
+                const windowAfter = Math.min(Math.max(segAfter * 0.35, 1.0), segAfter * 0.9);
+
+                // Pre-ÄP Gran function (linear in V, zero at Veq):
+                //   weak buffer step: (V − prevVeq)·10^(∓pH)   |   strong step: (V0+V)·10^(∓pH)
+                // (the (V0+V) factor cancels in the buffer region, so it must NOT be used there.)
+                const granBefore = (idx) => {
+                    const v = volumes_ml[idx], ph = titration.phs[idx];
+                    const f = strongStep ? (V0_ml + v) : (v - prevVeq);
+                    return f * (isAcidAnalyte ? Math.pow(10, -ph) : Math.pow(10, ph - pKL));
+                };
 
                 const beforeIdx = volumes_ml.reduce((acc, v, i) => {
                     if (v >= Veq - windowBefore && v < Veq) acc.push(i);
                     return acc;
                 }, []);
-                const afterIdx = volumes_ml.reduce((acc, v, i) => {
-                    if (v > Veq && v <= Veq + windowAfter) acc.push(i);
-                    return acc;
-                }, []);
-
-                // Gran functions:
-                // isAcidAnalyte (base titrant → acid): G1 = (V0+V)*10^(-pH), G2 = (V0+V)*10^(pH-pKL)
-                // !isAcidAnalyte (acid titrant → base): G1 = (V0+V)*10^(pH-pKL), G2 = (V0+V)*10^(-pH)
-                const granG = (idx, isBefore) => {
-                    const v = volumes_ml[idx];
-                    const ph = titration.phs[idx];
-                    const f = V0_ml + v;
-                    if (isAcidAnalyte) {
-                        return isBefore ? f * Math.pow(10, -ph) : f * Math.pow(10, ph - pKL);
-                    } else {
-                        return isBefore ? f * Math.pow(10, ph - pKL) : f * Math.pow(10, -ph);
-                    }
-                };
-
                 const g1x = beforeIdx.map(i => volumes_ml[i]);
-                const g1y = beforeIdx.map(i => granG(i, true));
-                const g2x = afterIdx.map(i => volumes_ml[i]);
-                const g2y = afterIdx.map(i => granG(i, false));
+                const g1y = beforeIdx.map(i => granBefore(i));
 
-                // Traces for data points
                 if (g1x.length > 0) {
                     data.push({
                         x: g1x, y: g1y, mode: 'markers', name: `G₁ (vor ÄP ${eqIdx+1})`,
                         marker: { color, size: 5 }, legendgroup: `ep${eqIdx}`
                     });
                 }
-                if (g2x.length > 0) {
-                    data.push({
-                        x: g2x, y: g2y, mode: 'markers', name: `G₂ (nach ÄP ${eqIdx+1})`,
-                        marker: { color, size: 5, symbol: 'diamond' }, legendgroup: `ep${eqIdx}`
-                    });
-                }
-
-                // Linear regression + extrapolation lines
                 const reg1 = linReg(g1x, g1y);
-                const reg2 = linReg(g2x, g2y);
-
                 if (reg1 && reg1.zero !== null && isFinite(reg1.zero) && reg1.zero > 0 && reg1.zero < plot_end_volume_ml) {
                     const xA = Math.max(0, g1x[0] - windowBefore * 0.5);
-                    const xB = reg1.zero;
                     data.push({
-                        x: [xA, xB], y: [reg1.m*xA+reg1.b, 0],
+                        x: [xA, reg1.zero], y: [reg1.m*xA+reg1.b, 0],
                         mode: 'lines', line: { color, dash: 'dot', width: 1.5 },
                         name: `Extrap. G₁(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
                     });
@@ -1343,19 +1337,41 @@
                         font: { size: 10, color }, bgcolor: 'rgba(0,0,0,0.5)', borderpad: 2
                     });
                 }
-                if (reg2 && reg2.zero !== null && isFinite(reg2.zero) && reg2.zero > 0 && reg2.zero < plot_end_volume_ml) {
-                    const xA = reg2.zero;
-                    const xB = g2x[g2x.length-1] + windowAfter * 0.5;
-                    data.push({
-                        x: [xA, xB], y: [0, reg2.m*xB+reg2.b],
-                        mode: 'lines', line: { color, dash: 'dash', width: 1.5 },
-                        name: `Extrap. G₂(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
-                    });
-                    annotations.push({
-                        x: reg2.zero, y: 0, text: `ÄP ${eqIdx+1}<br>${reg2.zero.toFixed(2)} mL`,
-                        showarrow: true, arrowhead: 2, ax: 0, ay: -30,
-                        font: { size: 10, color }, bgcolor: 'rgba(0,0,0,0.5)', borderpad: 2
-                    });
+
+                // Post-ÄP Gran function (V0+V)·10^(±pH−pKL) is rigorous ONLY in the excess-titrant
+                // region after the FINAL ÄP. Between two ÄPs the curve is another buffer, where this
+                // form is not linear, so G₂ is drawn only for the last ÄP.
+                if (isFinal) {
+                    const afterIdx = volumes_ml.reduce((acc, v, i) => {
+                        if (v > Veq && v <= Veq + windowAfter) acc.push(i);
+                        return acc;
+                    }, []);
+                    const granAfter = (idx) => {
+                        const v = volumes_ml[idx], ph = titration.phs[idx], f = V0_ml + v;
+                        return isAcidAnalyte ? f * Math.pow(10, ph - pKL) : f * Math.pow(10, -ph);
+                    };
+                    const g2x = afterIdx.map(i => volumes_ml[i]);
+                    const g2y = afterIdx.map(i => granAfter(i));
+                    if (g2x.length > 0) {
+                        data.push({
+                            x: g2x, y: g2y, mode: 'markers', name: `G₂ (nach ÄP ${eqIdx+1})`,
+                            marker: { color, size: 5, symbol: 'diamond' }, legendgroup: `ep${eqIdx}`
+                        });
+                    }
+                    const reg2 = linReg(g2x, g2y);
+                    if (reg2 && reg2.zero !== null && isFinite(reg2.zero) && reg2.zero > 0 && reg2.zero < plot_end_volume_ml) {
+                        const xB = g2x[g2x.length-1] + windowAfter * 0.5;
+                        data.push({
+                            x: [reg2.zero, xB], y: [0, reg2.m*xB+reg2.b],
+                            mode: 'lines', line: { color, dash: 'dash', width: 1.5 },
+                            name: `Extrap. G₂(ÄP ${eqIdx+1})`, showlegend: false, legendgroup: `ep${eqIdx}`
+                        });
+                        annotations.push({
+                            x: reg2.zero, y: 0, text: `ÄP ${eqIdx+1}<br>${reg2.zero.toFixed(2)} mL`,
+                            showarrow: true, arrowhead: 2, ax: 0, ay: -30,
+                            font: { size: 10, color }, bgcolor: 'rgba(0,0,0,0.5)', borderpad: 2
+                        });
+                    }
                 }
 
                 // Vertical line at known EP
@@ -1367,8 +1383,8 @@
             });
 
             const gLabel = isAcidAnalyte
-                ? 'G₁=(V₀+V)·10⁻ᵖᴴ / G₂=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ'
-                : 'G₁=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ / G₂=(V₀+V)·10⁻ᵖᴴ';
+                ? 'G₁=(V−Vₚ)·10⁻ᵖᴴ (Puffer) · G₂=(V₀+V)·10ᵖᴴ⁻ᵖᴷᴸ (Überschuss)'
+                : 'G₁=(V−Vₚ)·10ᵖᴴ⁻ᵖᴷᴸ (Puffer) · G₂=(V₀+V)·10⁻ᵖᴴ (Überschuss)';
 
             Plotly.newPlot('plot-gran', data, {
                 title: `Gran-Plot — ${gLabel}`,
@@ -1460,7 +1476,7 @@
         }
 
         function plotBufferCapacity() {
-            const { titration, params } = currentSimulationData;
+            const { titration, params, plot_end_volume_ml } = currentSimulationData;
             if (!titration || titration.phs.length < 4) {
                 document.getElementById('plot-buffer').innerHTML = '<p>Zu wenige Daten für β-Berechnung.</p>';
                 return;
@@ -1484,8 +1500,12 @@
             const dc_dph = numGradient(c_values, titration.phs);
             const beta_dynamic = dc_dph.map(v => Math.abs(v));
 
-            const maxStatic = Math.max(...beta_static.filter(v => v !== null), Number.EPSILON);
-            const maxDynamic = Math.max(...beta_dynamic, Number.EPSILON);
+            // Normalize against the peak within the PLOTTED titration region (V ≤ plot_end),
+            // not the far V→∞ tail (which otherwise squashes the analyte buffer peak).
+            const visLimit = (plot_end_volume_ml || Infinity) / 1000;
+            const inVis = (i) => titration.volumes[i] <= visLimit;
+            const maxStatic = Math.max(...beta_static.filter((v, i) => v !== null && inVis(i)), Number.EPSILON);
+            const maxDynamic = Math.max(...beta_dynamic.filter((v, i) => isFinite(v) && inVis(i)), Number.EPSILON);
             const isNormalized = displayMode === 'normalized';
 
             const betaStaticY = isNormalized ? beta_static.map(v => v === null ? null : v / maxStatic) : beta_static;

@@ -6,8 +6,10 @@
     <title>Universeller Titrations-Simulator</title>
     <!-- Modernes, klassenloses CSS-Framework für gutes Aussehen ohne Aufwand -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <!-- Plotly.js Bibliothek für die Grafiken -->
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- Plotly.js für die Grafiken — feste Version (nicht "latest") mit Subresource-Integrity -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"
+            integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7"
+            crossorigin="anonymous"></script>
     <style>
         :root {
             --pico-font-size: 100%;
@@ -372,6 +374,15 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
 
+        // Fail gracefully if the plotting library did not load (offline / blocked CDN / SRI mismatch)
+        if (typeof Plotly === 'undefined') {
+            document.querySelector('main.container').insertAdjacentHTML('afterbegin',
+                '<article role="alert" style="border:1px solid var(--pico-del-color); color:var(--pico-del-color);">' +
+                '<strong>Diagramm-Bibliothek konnte nicht geladen werden.</strong> Bitte die Internetverbindung prüfen ' +
+                'und die Seite neu laden (Plotly.js wird von einem CDN bezogen).</article>');
+            return;
+        }
+
         // =============================================================================
         // KONSTANTEN & KONFIGURATION
         // =============================================================================
@@ -620,7 +631,8 @@
                 ph_points.forEach(ph => {
                     const h_plus = Math.pow(10, -ph);
                     const oh_minus = Math.pow(10, ph - p.pks);
-                    const alpha = h_plus - oh_minus; // proton excess (Eq. [19])
+                    // proton excess (Eq. [19]) is (h_plus - oh_minus); used inline in the
+                    // titrant denominator and in the numerator below.
 
                     // Titrant contribution
                     const alphas_titrant = getAlphaFractions(ph, p.pkas_titrant);
@@ -632,8 +644,6 @@
                         const mbar = co2FormationFunction(ph);
                         titrant_denom -= (2 - mbar) * p.co2_concentration;
                     }
-
-                    const Z = -titrant_denom; // denominator: Z - α → -(titrant term)
 
                     // Analyte mixture contributions: sum over all components (Eq. [37])
                     let analyte_num = 0;
@@ -681,9 +691,6 @@
                         });
                         this.species_fractions_per_component.push(fracs);
                     }
-
-                    // For backward compatibility: first component species fractions
-                    this.species_fractions = this.species_fractions_per_component[0] || [];
                 }
             }
         }
@@ -852,7 +859,15 @@
             let anyPkaReordered = false;
             componentDivs.forEach((div, compIdx) => {
                 const symbol = div.querySelector('.comp-symbol').value || 'X';
-                const concentration = parseFloat(div.querySelector('.comp-conc').value) || 0.1;
+                const concInput = div.querySelector('.comp-conc');
+                const concentration = parseFloat(concInput.value);
+                if (!Number.isFinite(concentration) || concentration <= 0) {
+                    const msg = `Komponente ${compIdx + 1}: Konzentration muss eine Zahl > 0 sein.`;
+                    setComponentFieldError(concInput, msg);
+                    validationErrors.push(msg);
+                } else {
+                    setComponentFieldError(concInput, '');
+                }
                 const n = parseInt(div.querySelector('.comp-n').value) || 1;
                 const chargeEl = div.querySelector('.comp-charge');
                 const charge_L = chargeEl ? (parseInt(chargeEl.value) || 0) : 0;
@@ -877,6 +892,17 @@
                 components.push({ symbol, concentration, n_protons: pkas.length, pkas, is_acid: isAcid, charge_L });
             });
 
+            // Global (non-component) input validation — reject 0 / empty / negative / NaN
+            // instead of silently producing Infinity/NaN plot ranges.
+            const cTitrant = parseFloat(ui.cTitrant.value);
+            const vAnalyteMl = parseFloat(ui.vAnalyte.value);
+            const pkl = parseFloat(ui.pksSlider.value);
+            const pkasTitrant = parseFloat(ui.pkasTitrant.value);
+            if (!Number.isFinite(cTitrant) || cTitrant <= 0) validationErrors.push('Titrant-Konzentration muss eine Zahl > 0 sein.');
+            if (!Number.isFinite(vAnalyteMl) || vAnalyteMl <= 0) validationErrors.push('Analytvolumen muss eine Zahl > 0 sein.');
+            if (!Number.isFinite(pkl) || pkl <= 0) validationErrors.push('pKL (Lösungsmittel-Autoprotolyse) muss eine Zahl > 0 sein.');
+            if (!Number.isFinite(pkasTitrant)) validationErrors.push('pKs der korrespondierenden Säure des Titranten ist ungültig.');
+
             if (validationErrors.length > 0 || components.some(comp => comp.pkas.length === 0)) {
                 return { valid: false, validationErrors, components, analyte_is_acid: isAcid };
             }
@@ -888,11 +914,11 @@
             return {
                 valid: true,
                 analyte_is_acid: isAcid,
-                pks: parseFloat(ui.pksSlider.value),
-                v_analyte: parseFloat(ui.vAnalyte.value) / 1000.0,
+                pks: pkl,
+                v_analyte: vAnalyteMl / 1000.0,
                 components: components,
-                c_titrant: parseFloat(ui.cTitrant.value),
-                pkas_titrant: [parseFloat(ui.pkasTitrant.value)],
+                c_titrant: cTitrant,
+                pkas_titrant: [pkasTitrant],
                 co2_concentration: parseFloat(ui.co2Concentration.value) || 0,
             };
         }
@@ -901,7 +927,10 @@
             clearSimulationNotice();
             const params = getParams();
             if (!params.valid) {
-                if (params.validationErrors && params.validationErrors.length > 0) {
+                const errs = params.validationErrors || [];
+                if (errs.length > 0) {
+                    showSimulationNotice('Simulation gestoppt: ' + errs.join(' '));
+                } else {
                     showSimulationNotice('Simulation gestoppt: Mindestens eine Komponente hat keine gültige Dissoziationskonstante (pKₐ).');
                 }
                 return;
@@ -964,9 +993,11 @@
 
             // For Φ calculation: Φ = C·V / (total moles titratable)
             const phiIsValid = Number.isFinite(total_moles_titratable) && total_moles_titratable > 0;
+            // null (not volumes_ml) when Φ is undefined, so a future unguarded read fails
+            // loudly instead of silently plotting mL magnitudes as Φ.
             const phi_values = phiIsValid
                 ? titration.volumes.map(v => (params.c_titrant * v) / total_moles_titratable)
-                : volumes_ml;
+                : null;
 
             if (!phiIsValid) {
                 if (ui.xAxisMode.value === 'phi') ui.xAxisMode.value = 'volume';
@@ -974,7 +1005,6 @@
             }
 
             // For backward compatibility with single-component code
-            const n_protons = params.components[0].pkas.length;
             const species_labels = all_species_labels[0] || [];
             const species_concentrations = all_species_concentrations[0] || [];
 
@@ -982,7 +1012,7 @@
             const inflection_points = findInflectionPoints(volumes_ml, titration.phs);
 
             currentSimulationData = {
-                titration, params, volumes_ml, n_protons, plot_end_volume_ml,
+                titration, params, volumes_ml, plot_end_volume_ml,
                 eq_vols_l, half_eq_vols_l, half_eq_pkas, species_labels, species_concentrations,
                 all_species_labels, all_species_concentrations, phi_values,
                 total_moles_titratable, inflection_points, phiIsValid
@@ -1500,7 +1530,7 @@
             // c = C·V / (V₀+V) is the current concentration of titrant in the mixture
             const c_values = titration.volumes.map(v => (params.c_titrant * v) / (params.v_analyte + v));
             const dc_dph = numGradient(c_values, titration.phs);
-            const beta_dynamic = dc_dph.map(v => Math.abs(v));
+            const beta_dynamic = dc_dph.map(v => isFinite(v) ? Math.abs(v) : null);
 
             // Normalize against the peak within the PLOTTED titration region (V ≤ plot_end),
             // not the far V→∞ tail (which otherwise squashes the analyte buffer peak).
@@ -1511,7 +1541,7 @@
             const isNormalized = displayMode === 'normalized';
 
             const betaStaticY = isNormalized ? beta_static.map(v => v === null ? null : v / maxStatic) : beta_static;
-            const betaDynamicY = isNormalized ? beta_dynamic.map(v => v / maxDynamic) : beta_dynamic;
+            const betaDynamicY = isNormalized ? beta_dynamic.map(v => v === null ? null : v / maxDynamic) : beta_dynamic;
 
             const trace1 = {
                 x: titration.phs,
@@ -1679,6 +1709,20 @@
 
             const resultsDiv = document.getElementById('back-titration-results');
             const plotDiv = document.getElementById('plot-back-titration');
+
+            // Eingabevalidierung: alle Mengen müssen endliche Zahlen > 0 sein (stoich ganzzahlig ≥ 1);
+            // pKs darf negativ sein (starke Säure), muss aber endlich sein.
+            const positives = [analyte_mass_g, analyte_mm_gmol, v_dissolve_ml, c_r1, v_r1_ml, c_r2];
+            const invalid = positives.some(x => !Number.isFinite(x) || x <= 0)
+                || !Number.isFinite(stoich_ratio) || stoich_ratio < 1
+                || !Number.isFinite(pka_r2) || !Number.isFinite(pks) || pks <= 0;
+            if (invalid) {
+                resultsDiv.innerHTML = `<article role="alert" style="background-color: var(--pico-del-color);">
+                    <h4>⚠️ Ungültige Eingabe</h4>
+                    <p>Bitte für alle Felder positive Zahlenwerte eingeben (Stöchiometrie ganzzahlig ≥ 1, pKs endlich).</p></article>`;
+                Plotly.purge(plotDiv);
+                return;
+            }
 
             // Berechnungen
             const moles_analyte = analyte_mass_g / analyte_mm_gmol;

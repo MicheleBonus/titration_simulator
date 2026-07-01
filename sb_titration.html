@@ -1453,10 +1453,13 @@
             const displayMode = ui.bufferDisplayMode?.value || 'dual';
             const yScale = ui.bufferYScale?.value || 'linear';
 
-            // Static buffer capacity β = |dΔ/dpH| ≈ |1/(dV/dpH)| (Eq. [79])
+            // Static Van Slyke buffer capacity β = dC_b/dpH ≈ (c_titrant/V₀)·|dV/dpH|
+            // (mol·L⁻¹·pH⁻¹). Maximal at pH = pKₐ (half-neutralisation), minimal at the
+            // equivalence point — do NOT use the reciprocal |dpH/dV| (that is the curve slope).
             const dv_dph = numGradient(titration.volumes, titration.phs);
+            const betaStaticScale = params.c_titrant / params.v_analyte;
             const beta_static = dv_dph.map(v =>
-                (v === 0 || !isFinite(v)) ? null : Math.abs(1 / v)
+                (!isFinite(v)) ? null : Math.abs(v) * betaStaticScale
             );
 
             // Dynamic buffer capacity βV = |dc/dpH| (Eq. [93-97])
@@ -1491,7 +1494,7 @@
 
             const yAxisTitle = isNormalized
                 ? 'Normierte Pufferkapazität (–)'
-                : 'β statisch |dΔ/dpH| (L·mol⁻¹·pH⁻¹)';
+                : 'β statisch (Van Slyke) = dC_b/dpH (mol·L⁻¹·pH⁻¹)';
 
             const pkaShapes = [];
             const pkaAnnotations = [];
@@ -1541,9 +1544,10 @@
                 const { titration, params } = currentSimulationData;
                 if (!titration) return { rows: [], filename: 'buffer_capacity.csv' };
                 const axLabel = getAxisLabel(params.pks);
-                const header = [axLabel, 'beta_static', 'beta_dynamic'];
+                const header = [axLabel, 'beta_static_molL-1pH-1', 'beta_dynamic_molL-1pH-1'];
                 const dv_dph2 = numGradient(titration.volumes, titration.phs);
-                const bs2 = dv_dph2.map(v => (v === 0 || !isFinite(v)) ? null : Math.abs(1 / v));
+                const bsScale2 = params.c_titrant / params.v_analyte;
+                const bs2 = dv_dph2.map(v => (!isFinite(v)) ? null : Math.abs(v) * bsScale2);
                 const c2 = titration.volumes.map(v => (params.c_titrant * v) / (params.v_analyte + v));
                 const dc2 = numGradient(c2, titration.phs);
                 const bd2 = dc2.map(v => isFinite(v) ? Math.abs(v) : null);

@@ -300,6 +300,7 @@
                 <article id="tab4" class="tab-content">
                     <h3>Universeller Simulator für Rücktitrationen</h3>
                     <p>Bei einer <strong>Rücktitration</strong> wird ein bekannter Überschuss eines Reagenzes (R1) zu einem Analyten gegeben. Anschließend wird der <em>nicht umgesetzte Überschuss</em> von R1 mit einer Maßlösung (R2) titriert.</p>
+                    <p><small style="color:var(--pico-muted-color);">Hinweis: Stoffmenge, Masse und Reinheit werden rein stöchiometrisch berechnet und sind exakt. Die dargestellte <em>Kurvenform</em> setzt ein säure-base-inertes Reaktionsprodukt voraus (R1 als starke einprotonige Spezies). Freigesetzte puffernde Produkte – z.&nbsp;B. Carbonat/Hydrogencarbonat aus einer Carbonatbestimmung – sind nicht modelliert; solche Titrationen erfordern in der Praxis das Austreiben von CO₂ (Auskochen). Bei MgO/ZnO entsteht kein CO₂.</small></p>
                     <hr>
                     <h4>Parameter für die Rücktitration</h4>
                     <div class="grid-3-col">
@@ -405,9 +406,10 @@
             "Tropaeolin O": { range: [11.1, 12.7], colors: ["yellow", "orange"] },
         };
 
-        // CO₂/H₂CO₃ dissociation constants (pK₁=6.3, pK₂=10.1)
-        const CO2_PK1 = 6.3;
-        const CO2_PK2 = 10.1;
+        // CO₂/H₂CO₃ dissociation constants (Harris: pK₁=6.35, pK₂=10.33) — kept identical
+        // to the carbonate base default DEFAULT_PKAS.base[2] so the same system is one value.
+        const CO2_PK1 = 6.35;
+        const CO2_PK2 = 10.33;
 
         // =============================================================================
         // HILFSFUNKTIONEN
@@ -722,7 +724,7 @@
 
         // --- Mixture component management ---
         const DEFAULT_PKAS = {
-            acid: { 1: [4.76], 2: [2.15, 7.20], 3: [2.15, 7.20, 12.35], 4: [1.8, 4.0, 8.0, 12.0], 5: [1.5, 3.5, 6.5, 9.5, 12.5] },
+            acid: { 1: [4.76], 2: [1.90, 6.07], 3: [2.15, 7.20, 12.35], 4: [1.8, 4.0, 8.0, 12.0], 5: [1.5, 3.5, 6.5, 9.5, 12.5] },
             base: { 1: [9.24], 2: [6.35, 10.33], 3: [2.15, 7.20, 12.35], 4: [1.8, 4.0, 8.0, 12.0], 5: [1.5, 3.5, 6.5, 9.5, 12.5] }
         };
 
@@ -1785,7 +1787,7 @@
             // Rebuild mixture components for new mode
             ui.mixtureContainer.innerHTML = '';
             mixtureComponentCount = 0;
-            addMixtureComponent({ n: 2, pkas: isAcid ? [2.15, 7.20] : [6.35, 10.33], symbol: isAcid ? 'A' : 'B' });
+            addMixtureComponent({ n: 2, pkas: DEFAULT_PKAS[isAcid ? 'acid' : 'base'][2], symbol: isAcid ? 'A' : 'B' });
             runFullSimulation();
         });
         function updateSolventUI() {
@@ -1874,7 +1876,7 @@
         });
 
         // Create initial mixture component
-        addMixtureComponent({ n: 2, pkas: [2.15, 7.20], symbol: 'A', concentration: 0.100 });
+        addMixtureComponent({ n: 2, pkas: DEFAULT_PKAS.acid[2], symbol: 'A', concentration: 0.100 });
         runFullSimulation();
         
         // MathJax für schöne Formeln laden und rendern

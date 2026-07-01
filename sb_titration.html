@@ -1570,19 +1570,25 @@
             const dc_dph = numGradient(c_values, titration.phs);
             const beta_dynamic = dc_dph.map(v => isFinite(v) ? Math.abs(v) : null);
 
-            // Normalize against the peak within the PLOTTED titration region (V ≤ plot_end),
-            // not the far V→∞ tail (which otherwise squashes the analyte buffer peak).
+            // Restrict the buffer plot to the titration region of interest (V ≤ plot_end). The
+            // far excess-titrant tail (V→∞ as pH→pKL) has an enormous |dV/dpH| that would both
+            // dominate the y-axis auto-scale (hiding the analyte pKₐ peaks) and skew normalization.
             const visLimit = (plot_end_volume_ml || Infinity) / 1000;
-            const inVis = (i) => titration.volumes[i] <= visLimit;
-            const maxStatic = Math.max(...beta_static.filter((v, i) => v !== null && inVis(i)), Number.EPSILON);
-            const maxDynamic = Math.max(...beta_dynamic.filter((v, i) => isFinite(v) && inVis(i)), Number.EPSILON);
+            const idxVis = [];
+            for (let i = 0; i < titration.volumes.length; i++) if (titration.volumes[i] <= visLimit) idxVis.push(i);
+            const phsVis = idxVis.map(i => titration.phs[i]);
+            const betaStaticVis = idxVis.map(i => beta_static[i]);
+            const betaDynamicVis = idxVis.map(i => beta_dynamic[i]);
+
+            const maxStatic = Math.max(...betaStaticVis.filter(v => v !== null && isFinite(v)), Number.EPSILON);
+            const maxDynamic = Math.max(...betaDynamicVis.filter(v => v !== null && isFinite(v)), Number.EPSILON);
             const isNormalized = displayMode === 'normalized';
 
-            const betaStaticY = isNormalized ? beta_static.map(v => v === null ? null : v / maxStatic) : beta_static;
-            const betaDynamicY = isNormalized ? beta_dynamic.map(v => v === null ? null : v / maxDynamic) : beta_dynamic;
+            const betaStaticY = isNormalized ? betaStaticVis.map(v => v === null ? null : v / maxStatic) : betaStaticVis;
+            const betaDynamicY = isNormalized ? betaDynamicVis.map(v => v === null ? null : v / maxDynamic) : betaDynamicVis;
 
             const trace1 = {
-                x: titration.phs,
+                x: phsVis,
                 y: betaStaticY,
                 mode: 'lines',
                 line: { color: '#4ade80', width: 2 },
@@ -1590,7 +1596,7 @@
                 yaxis: 'y'
             };
             const trace2 = {
-                x: titration.phs,
+                x: phsVis,
                 y: betaDynamicY,
                 mode: 'lines',
                 line: { color: '#38d0ee', width: 2, dash: 'dash' },
@@ -1623,11 +1629,16 @@
                 });
             });
 
+            const phLo = phsVis.length ? Math.min(...phsVis) : 0;
+            const phHi = phsVis.length ? Math.max(...phsVis) : params.pks;
+            const phPad = Math.max((phHi - phLo) * 0.03, 0.2);
+            const bufferXRange = [Math.max(0, phLo - phPad), Math.min(params.pks, phHi + phPad)];
+
             const layout = {
                 title: isNormalized
                     ? 'Pufferkapazität (normiert): β/βmax und βV/βVmax'
                     : 'Pufferkapazität: β (statisch) und βV (dynamisch, Gl. [93])',
-                xaxis: { title: getAxisLabel(params.pks), range: [0, params.pks] },
+                xaxis: { title: getAxisLabel(params.pks), range: bufferXRange },
                 yaxis: { title: yAxisTitle, type: yScale },
                 template: 'plotly_dark',
                 legend: { yanchor: 'top', y: 0.95, xanchor: 'right', x: 0.95 },
